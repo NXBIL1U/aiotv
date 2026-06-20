@@ -8,10 +8,12 @@ object M3uParser {
 
     fun parse(content: String): List<Channel> {
         val channels = mutableListOf<Channel>()
-        val reader = BufferedReader(StringReader(content))
+        // Strip a leading UTF-8 BOM, which many providers prepend; otherwise the
+        // first line is "﻿#EXTM3U" and the playlist is rejected as invalid.
+        val reader = BufferedReader(StringReader(content.removePrefix("﻿")))
         var line = reader.readLine()
 
-        if (line?.trimStart()?.startsWith("#EXTM3U") != true) return emptyList()
+        if (line?.trimStart()?.removePrefix("﻿")?.startsWith("#EXTM3U") != true) return emptyList()
 
         var attrs = mutableMapOf<String, String>()
         var displayName = ""

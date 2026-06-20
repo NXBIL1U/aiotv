@@ -23,6 +23,10 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Personal APK shared direct from the repo — sign release with the debug
+            // key so `assembleRelease` produces an installable, sideloadable APK with
+            // no manual keystore setup. Swap in a real keystore for store distribution.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -97,6 +101,7 @@ dependencies {
     // Media3
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.ui)
     implementation(libs.media3.session)
 
