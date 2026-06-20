@@ -1,0 +1,4 @@
+-keep class com.itrepos.aiotv.** { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**

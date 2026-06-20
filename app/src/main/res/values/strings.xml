@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">AIO TV</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_guide">TV Guide</string>
+    <string name="nav_live">Live</string>
+    <string name="nav_watchlist">Watchlist</string>
+    <string name="nav_addons">Addons</string>
+    <string name="nav_settings">Settings</string>
+    <string name="empty_no_source">Add an IPTV source or Stremio addon in Settings to get started.</string>
+    <string name="settings_torbox_key">TorBox API Key</string>
+    <string name="settings_xtream_server">Xtream Server URL</string>
+    <string name="settings_xtream_user">Username</string>
+    <string name="settings_xtream_pass">Password</string>
+    <string name="settings_addon_url">Addon Manifest URL</string>
+    <string name="settings_add_addon">Add Addon</string>
+    <string name="cached_badge">CACHED</string>
+    <string name="continue_watching">Continue Watching</string>
+    <string name="live_now">Live Now</string>
+    <string name="top_picks">Top Picks</string>
+</resources>
