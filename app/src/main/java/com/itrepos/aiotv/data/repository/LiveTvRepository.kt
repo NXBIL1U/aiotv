@@ -16,9 +16,11 @@ import com.itrepos.aiotv.data.local.db.entity.EpgEntity
 import com.itrepos.aiotv.data.local.db.entity.FavouriteCategoryEntity
 import com.itrepos.aiotv.data.local.db.entity.FavouriteChannelEntity
 import com.itrepos.aiotv.data.local.db.entity.RecentlyWatchedEntity
+import com.itrepos.aiotv.data.remote.iptv.M3uParser
 import com.itrepos.aiotv.data.remote.iptv.RegionClassifier
 import com.itrepos.aiotv.data.remote.iptv.XtreamApi
 import com.itrepos.aiotv.data.remote.iptv.XtreamCreds
+import com.itrepos.aiotv.domain.model.Channel
 import com.itrepos.aiotv.domain.model.ChannelCategory
 import com.itrepos.aiotv.domain.model.EpgEntry
 import com.itrepos.aiotv.domain.model.EpgNowNext
@@ -28,6 +30,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -49,6 +53,7 @@ class LiveTvRepository @Inject constructor(
     private val cacheMetaDao: CacheMetaDao,
     private val xtreamApi: XtreamApi,
     private val appDataStore: AppDataStore,
+    private val okHttpClient: OkHttpClient,
 ) {
 
     // ── Channel / Category Flows ──────────────────────────────────────────────
@@ -179,8 +184,16 @@ class LiveTvRepository @Inject constructor(
 
             val creds = resolveXtreamCreds()
             if (creds == null) {
-                Log.d(TAG, "No Xtream creds — skipping refresh")
-                return@withLock false
+                // No Xtream account. If the user configured a plain (non-get.php) M3U URL, fetch
+                // and parse it so Room is populated — otherwise Home/Search/Live TV would be empty
+                // for M3U users (GetChannelsUseCase reads getChannelsOnce()).
+                val m3uUrl = appDataStore.m3uUrl.first()
+                return@withLock if (m3uUrl.isNotBlank()) {
+                    refreshFromM3u(m3uUrl, nowMs)
+                } else {
+                    Log.d(TAG, "No Xtream creds and no M3U URL — skipping refresh")
+                    false
+                }
             }
 
             try {
@@ -234,6 +247,64 @@ class LiveTvRepository @Inject constructor(
             Log.e(TAG, "Network refresh failed — serving stale cache", e)
             false
         }
+        }
+    }
+
+    /**
+     * Fetch + parse a plain M3U playlist and populate Room. Mirrors [IptvRepository.fetchM3u]:
+     * the body is streamed via OkHttp into [M3uParser.parse] rather than materialised whole
+     * (IPTV playlists can be hundreds of MB). Categories are derived from the distinct
+     * group-titles. Never throws — returns true iff a network fetch was attempted.
+     *
+     * Must be called inside [refreshMutex] and on [Dispatchers.IO].
+     */
+    private suspend fun refreshFromM3u(url: String, nowMs: Long): Boolean {
+        return try {
+            Log.d(TAG, "Fetching plain M3U playlist from network")
+            val req = Request.Builder().url(url).build()
+            val channels: List<Channel> = okHttpClient.newCall(req).execute().use { resp ->
+                val reader = resp.body?.charStream()?.buffered() ?: return@use emptyList()
+                M3uParser.parse(reader)
+            }
+
+            // Map channels — regionTag derived from group-title (the unified category key).
+            val channelEntities = channels.mapIndexed { index, ch ->
+                ChannelEntity(
+                    id = ch.id,
+                    name = ch.name,
+                    logoUrl = ch.logoUrl,
+                    streamUrl = ch.streamUrl,
+                    categoryId = ch.categoryKey,
+                    regionTag = RegionClassifier.classify(ch.categoryKey),
+                    epgChannelId = ch.tvgId,
+                    num = index,
+                )
+            }
+
+            // Derive categories from the distinct group-titles.
+            val categoryEntities = channels
+                .map { it.categoryKey }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .map { groupTitle ->
+                    CategoryEntity(
+                        id = groupTitle,
+                        name = groupTitle,
+                        regionTag = RegionClassifier.classify(groupTitle),
+                    )
+                }
+
+            categoryDao.upsertAll(categoryEntities)
+            channelDao.upsertAll(channelEntities)
+
+            cacheMetaDao.upsert(CacheMetaEntity(META_CHANNELS, nowMs))
+            cacheMetaDao.upsert(CacheMetaEntity(META_CATEGORIES, nowMs))
+
+            Log.d(TAG, "Refreshed from M3U: ${channelEntities.size} channels, ${categoryEntities.size} categories")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "M3U refresh failed — serving stale cache", e)
+            false
         }
     }
 
