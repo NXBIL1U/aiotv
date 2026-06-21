@@ -2,12 +2,14 @@ package com.itrepos.aiotv.ui.screen.live
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.itrepos.aiotv.data.local.AppDataStore
 import com.itrepos.aiotv.data.repository.LiveTvRepository
 import com.itrepos.aiotv.data.repository.toDomain
 import com.itrepos.aiotv.domain.model.Channel
 import com.itrepos.aiotv.domain.model.ChannelCategory
 import com.itrepos.aiotv.domain.model.EpgNowNext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -31,6 +33,7 @@ data class LiveTvState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val hasSource: Boolean = false,
+    val selectedRegions: Set<String> = AppDataStore.DEFAULT_LIVE_REGIONS,
     val categories: List<ChannelCategory> = emptyList(),
     val selectedCategoryId: String = ALL_CATEGORY_ID,
     val channels: List<Channel> = emptyList(),
@@ -38,17 +41,15 @@ data class LiveTvState(
     val epg: Map<String, EpgNowNext> = emptyMap(),
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LiveTvViewModel @Inject constructor(
     private val repository: LiveTvRepository,
+    private val appDataStore: AppDataStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LiveTvState())
     val state: StateFlow<LiveTvState> = _state.asStateFlow()
-
-    // Keep all channels in memory for local category filtering and search
-    // (Room Flows push updates; we filter locally to avoid extra DB round-trips per gesture)
-    private var allChannels: List<Channel> = emptyList()
 
     private val epgSemaphore = Semaphore(4)
     private val epgInFlight = mutableSetOf<String>()
@@ -60,50 +61,67 @@ class LiveTvViewModel @Inject constructor(
     }
 
     /**
-     * Subscribe to Room Flows for channels and categories. Room pushes updates whenever the
-     * DB changes — no manual polling needed. All channels have regionTag="" in Phase 1 so we
-     * query for that to get everything; Phase 2 introduces real region filtering.
+     * Subscribe to Room Flows for channels and categories.
+     *
+     * - The channel + category flows switch whenever the persisted [AppDataStore.liveRegions]
+     *   changes (via [flatMapLatest]).
+     * - Within each region set, a secondary combine re-queries when [selectedCategoryId] changes.
+     * - When [query] is non-blank, the channel list is replaced by a global search result that
+     *   ignores region and category — so every channel remains reachable.
      */
     private fun observeRoomFlows() {
-        // Phase 1: regionTag for all rows is ""; observe with that tag to get all channels.
-        // When Phase 2 lands, this becomes the selected-region set from DataStore.
-        val regionTags = listOf("")
+        // Internal flow tracking the current category selection (so we can switch it reactively).
+        val categoryIdFlow = MutableStateFlow(ALL_CATEGORY_ID)
 
-        combine(
-            repository.observeChannels(regionTags, categoryId = null),
-            repository.observeAllCategories(),
-        ) { channelEntities, categoryEntities ->
-            Pair(channelEntities, categoryEntities)
-        }
-            .catch { e ->
-                // Don't crash the UI if Room throws (shouldn't happen, but be safe)
-                android.util.Log.e("LiveTvViewModel", "Room flow error", e)
-            }
-            .onEach { (channelEntities, categoryEntities) ->
-                val channels = channelEntities.map { it.toDomain() }
-                val categories = categoryEntities.map { it.toDomain() }
-
-                allChannels = channels
-
-                val currentQuery = _state.value.query
-                val currentCategoryId = _state.value.selectedCategoryId
-
-                val filteredChannels = when {
-                    currentQuery.isNotBlank() ->
-                        channels.filter { it.name.contains(currentQuery, ignoreCase = true) }
-                    else -> filterByCategory(currentCategoryId, channels)
+        // Observe channels: switch the Room Flow whenever regions or category changes.
+        appDataStore.liveRegions
+            .flatMapLatest { regions ->
+                _state.update { it.copy(selectedRegions = regions) }
+                val regionList = regions.toList()
+                categoryIdFlow.flatMapLatest { catId ->
+                    val effectiveCatId = if (catId == ALL_CATEGORY_ID) null else catId
+                    repository.observeChannels(regionList, effectiveCatId)
                 }
-
+            }
+            .catch { e -> android.util.Log.e("LiveTvViewModel", "Channel flow error", e) }
+            .onEach { channelEntities ->
+                val channels = channelEntities.map { it.toDomain() }
+                val currentQuery = _state.value.query
+                val displayedChannels = if (currentQuery.isBlank()) channels else {
+                    // Query is active: keep showing the in-flight search result unchanged;
+                    // the setQuery debounce will re-issue a search when the user types.
+                    _state.value.channels
+                }
                 _state.update { s ->
                     s.copy(
-                        // Once we have any data from Room we are no longer in the initial loading state.
                         isLoading = false,
-                        hasSource = channels.isNotEmpty() || categories.isNotEmpty(),
-                        channels = filteredChannels,
+                        hasSource = channels.isNotEmpty() || s.categories.isNotEmpty(),
+                        channels = displayedChannels,
+                    )
+                }
+            }
+            .launchIn(viewModelScope)
+
+        // Observe categories — reactive on region changes.
+        appDataStore.liveRegions
+            .flatMapLatest { regions ->
+                repository.observeCategories(regions.toList())
+            }
+            .catch { e -> android.util.Log.e("LiveTvViewModel", "Category flow error", e) }
+            .onEach { categoryEntities ->
+                val categories = categoryEntities.map { it.toDomain() }
+                _state.update { s ->
+                    s.copy(
+                        hasSource = s.channels.isNotEmpty() || categories.isNotEmpty(),
                         categories = listOf(ChannelCategory(ALL_CATEGORY_ID, "All")) + categories,
                     )
                 }
             }
+            .launchIn(viewModelScope)
+
+        // Wire categoryIdFlow so selectCategory() triggers a new channel query.
+        _state
+            .onEach { s -> categoryIdFlow.value = s.selectedCategoryId }
             .launchIn(viewModelScope)
     }
 
@@ -116,8 +134,8 @@ class LiveTvViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isRefreshing = true) }
             val fetched = repository.refresh(force = false)
-            // If no network fetch occurred and Room is still empty, we have no source configured
-            if (!fetched && allChannels.isEmpty()) {
+            // If no network fetch occurred and Room is still empty, we have no source configured.
+            if (!fetched && _state.value.channels.isEmpty()) {
                 _state.update { it.copy(isLoading = false, hasSource = false, isRefreshing = false) }
             } else {
                 _state.update { it.copy(isRefreshing = false) }
@@ -135,21 +153,42 @@ class LiveTvViewModel @Inject constructor(
     }
 
     fun selectCategory(id: String) {
-        val filtered = filterByCategory(id, allChannels)
-        _state.update { it.copy(selectedCategoryId = id, query = "", channels = filtered) }
+        _state.update { it.copy(selectedCategoryId = id, query = "") }
     }
 
+    /**
+     * Persist the user's region selection. The [appDataStore.liveRegions] Flow will emit the
+     * new value and the [flatMapLatest] in [observeRoomFlows] will automatically re-query Room.
+     */
+    fun setRegions(regions: Set<String>) {
+        viewModelScope.launch {
+            appDataStore.setLiveRegions(regions)
+        }
+    }
+
+    /**
+     * Debounced search. When [q] is non-blank the global Room search is used (ignores region);
+     * when blank, the current region+category scoped Flow takes over again.
+     */
     fun setQuery(q: String) {
         _state.update { it.copy(query = q) }
         queryJob?.cancel()
         queryJob = viewModelScope.launch {
             delay(250)
-            val result = if (q.isBlank()) {
-                filterByCategory(_state.value.selectedCategoryId, allChannels)
+            if (q.isBlank()) {
+                // Blank query: let the region+category Flow supply the channel list.
+                // Trigger a re-emit by nudging the category selection state.
+                val catId = _state.value.selectedCategoryId
+                _state.update { it.copy(selectedCategoryId = catId) }
             } else {
-                allChannels.filter { it.name.contains(q, ignoreCase = true) }
+                // Non-blank: global search — ignores region so every channel is reachable.
+                repository.searchChannels(q)
+                    .catch { e -> android.util.Log.e("LiveTvViewModel", "Search flow error", e) }
+                    .onEach { entities ->
+                        _state.update { it.copy(channels = entities.map { e -> e.toDomain() }) }
+                    }
+                    .launchIn(viewModelScope)
             }
-            _state.update { it.copy(channels = result) }
         }
     }
 
@@ -169,8 +208,4 @@ class LiveTvViewModel @Inject constructor(
             }
         }
     }
-
-    private fun filterByCategory(id: String, channels: List<Channel>): List<Channel> =
-        if (id == ALL_CATEGORY_ID) channels
-        else channels.filter { it.categoryKey == id }
 }
