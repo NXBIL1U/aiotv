@@ -1,0 +1,1 @@
+nabz said he wants - network catagories in the home screen not iptv live now - network meaning netflix - disney etc - 

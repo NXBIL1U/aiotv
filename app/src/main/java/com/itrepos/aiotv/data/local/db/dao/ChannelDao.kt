@@ -25,6 +25,10 @@ interface ChannelDao {
     @Query("SELECT * FROM channels WHERE id = :id LIMIT 1")
     suspend fun byId(id: String): ChannelEntity?
 
+    /** One-shot, region-agnostic list of all channels (for Home/Search cache reads). */
+    @Query("SELECT * FROM channels ORDER BY num ASC, name ASC")
+    suspend fun getAll(): List<ChannelEntity>
+
     @Upsert
     suspend fun upsertAll(channels: List<ChannelEntity>)
 

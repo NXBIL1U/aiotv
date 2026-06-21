@@ -24,6 +24,8 @@ import com.itrepos.aiotv.domain.model.EpgNowNext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -153,28 +155,34 @@ class LiveTvRepository @Inject constructor(
      *
      * @return true if a network fetch was attempted (regardless of success).
      */
+    // Serialises refreshes so concurrent callers (Home, Search, Live TV) share one network
+    // fetch instead of each downloading the 7.6 MB list; the freshness re-check inside the lock
+    // means the 2nd caller sees the cache the 1st just wrote and skips.
+    private val refreshMutex = Mutex()
+
     suspend fun refresh(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
-        val nowMs = System.currentTimeMillis()
+        refreshMutex.withLock {
+            val nowMs = System.currentTimeMillis()
 
-        if (!force) {
-            val channelsMeta = cacheMetaDao.get(META_CHANNELS)
-            val categoriesMeta = cacheMetaDao.get(META_CATEGORIES)
-            val isFresh = channelsMeta != null && categoriesMeta != null &&
-                nowMs - channelsMeta.refreshedAtMs < TTL_MS &&
-                nowMs - categoriesMeta.refreshedAtMs < TTL_MS
-            if (isFresh) {
-                Log.d(TAG, "Cache fresh — skipping network refresh")
-                return@withContext false
+            if (!force) {
+                val channelsMeta = cacheMetaDao.get(META_CHANNELS)
+                val categoriesMeta = cacheMetaDao.get(META_CATEGORIES)
+                val isFresh = channelsMeta != null && categoriesMeta != null &&
+                    nowMs - channelsMeta.refreshedAtMs < TTL_MS &&
+                    nowMs - categoriesMeta.refreshedAtMs < TTL_MS
+                if (isFresh) {
+                    Log.d(TAG, "Cache fresh — skipping network refresh")
+                    return@withLock false
+                }
             }
-        }
 
-        val creds = resolveXtreamCreds()
-        if (creds == null) {
-            Log.d(TAG, "No Xtream creds — skipping refresh")
-            return@withContext false
-        }
+            val creds = resolveXtreamCreds()
+            if (creds == null) {
+                Log.d(TAG, "No Xtream creds — skipping refresh")
+                return@withLock false
+            }
 
-        try {
+            try {
             Log.d(TAG, "Fetching live channels + categories from network")
             val streamsUrl = "${creds.server}/player_api.php?username=${creds.user}" +
                 "&password=${creds.pass}&action=get_live_streams"
@@ -224,6 +232,16 @@ class LiveTvRepository @Inject constructor(
             Log.e(TAG, "Network refresh failed — serving stale cache", e)
             false
         }
+        }
+    }
+
+    /**
+     * One-shot, cache-first list of all channels for Home/Search: ensures a refresh has run
+     * (no-op when the cache is fresh) then returns the cached channels. Region-agnostic.
+     */
+    suspend fun getChannelsOnce(): List<com.itrepos.aiotv.domain.model.Channel> = withContext(Dispatchers.IO) {
+        refresh(force = false)
+        channelDao.getAll().map { it.toDomain() }
     }
 
     /**
