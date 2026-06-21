@@ -61,7 +61,7 @@ data class NavItem(
 val navItems = listOf(
     NavItem(Screen.Home, R.string.nav_home, Icons.Default.Home),
     NavItem(Screen.Search, R.string.nav_search, Icons.Default.Search),
-    NavItem(Screen.Guide, R.string.nav_guide, Icons.Default.VideoLibrary),
+    // Single Live TV destination (the redundant Guide tab is gone — both render LiveTvScreen).
     NavItem(Screen.Live, R.string.nav_live, Icons.Default.LiveTv),
     NavItem(Screen.Watchlist, R.string.nav_watchlist, Icons.Default.Bookmarks),
     NavItem(Screen.Addons, R.string.nav_addons, Icons.Default.Apps),
@@ -178,7 +178,7 @@ fun PhoneBottomNav(
     val phoneRoutes = listOf(
         Screen.Home.route,
         Screen.Search.route,
-        Screen.Guide.route,
+        Screen.Live.route,
         Screen.Addons.route,
         Screen.Settings.route,
     )

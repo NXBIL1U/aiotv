@@ -10,8 +10,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.itrepos.aiotv.ui.screen.addons.AddonsScreen
 import com.itrepos.aiotv.ui.screen.detail.DetailScreen
-import com.itrepos.aiotv.ui.screen.guide.TvGuideScreen
 import com.itrepos.aiotv.ui.screen.home.HomeScreen
+import com.itrepos.aiotv.ui.screen.live.LiveTvScreen
 import com.itrepos.aiotv.ui.screen.player.PlayerScreen
 import com.itrepos.aiotv.ui.screen.search.SearchScreen
 import com.itrepos.aiotv.ui.screen.settings.SettingsScreen
@@ -65,9 +65,8 @@ fun AppNavigation(isTv: Boolean, windowSizeClass: WindowSizeClass) {
             )
         }
         composable(Screen.Guide.route) {
-            TvGuideScreen(
+            LiveTvScreen(
                 isTv = isTv,
-                onNavigate = onNavigate,
                 onPlayChannel = { url, title ->
                     navController.navigate(Screen.Player.createRoute(url, title))
                 },
@@ -80,9 +79,8 @@ fun AppNavigation(isTv: Boolean, windowSizeClass: WindowSizeClass) {
             )
         }
         composable(Screen.Live.route) {
-            TvGuideScreen(
+            LiveTvScreen(
                 isTv = isTv,
-                onNavigate = onNavigate,
                 onPlayChannel = { url, title ->
                     navController.navigate(Screen.Player.createRoute(url, title))
                 },
