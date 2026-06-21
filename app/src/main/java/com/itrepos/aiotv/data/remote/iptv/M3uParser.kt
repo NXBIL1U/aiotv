@@ -54,6 +54,7 @@ object M3uParser {
                         groupTitle = attrs["group-title"] ?: "Uncategorised",
                         streamUrl = l,
                         tvgId = attrs["tvg-id"]?.takeIf { it.isNotEmpty() },
+                        categoryKey = attrs["group-title"] ?: "Uncategorised",
                     )
                     attrs = mutableMapOf()
                     displayName = ""

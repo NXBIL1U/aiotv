@@ -77,6 +77,7 @@ class IptvRepository @Inject constructor(
                     // endpoint is one persistent connection and the account's native format.
                     streamUrl = "$server/live/$user/$pass/${s.streamId}.ts",
                     tvgId = s.epgChannelId,
+                    categoryKey = s.categoryId ?: "",
                 )
             }
         } catch (e: Exception) { emptyList() }
