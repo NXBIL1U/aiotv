@@ -22,6 +22,10 @@ import javax.inject.Inject
 /** Sentinel id for the synthetic "All" category that shows every channel. */
 const val ALL_CATEGORY_ID = "__all__"
 
+/** Auto-retry attempts before falling to the error state (each attempt ~ the connect timeout). */
+private const val MAX_LOAD_ATTEMPTS = 3
+private const val RETRY_BACKOFF_MS = 2000L
+
 data class LiveTvState(
     val isLoading: Boolean = true,
     val hasSource: Boolean = false,
@@ -44,36 +48,72 @@ class LiveTvViewModel @Inject constructor(
     private val epgInFlight = mutableSetOf<String>()
     private var queryJob: Job? = null
 
+    private var loadJob: Job? = null
+
     init {
         load()
     }
 
     private fun load() {
-        _state.update { it.copy(isLoading = true) }
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
             val hasSource = repo.hasIptvSource()
-            val channelsDeferred = async { repo.getChannels() }
-            val catsDeferred = async { repo.getCategories() }
-            allChannels = channelsDeferred.await()
-            val cats = catsDeferred.await()
-            _state.update {
-                it.copy(
-                    isLoading = false,
-                    hasSource = hasSource,
-                    categories = listOf(ChannelCategory(ALL_CATEGORY_ID, "All")) + cats,
-                    channels = allChannels,
-                    query = "",
-                    selectedCategoryId = ALL_CATEGORY_ID,
-                )
+            if (!hasSource) {
+                // Nothing to fetch — show the "add a source" state at once; don't retry.
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        hasSource = false,
+                        channels = emptyList(),
+                        categories = listOf(ChannelCategory(ALL_CATEGORY_ID, "All")),
+                    )
+                }
+                return@launch
+            }
+            // Keep trying for a few attempts before showing the error state. isLoading stays
+            // true across attempts so the UI can show an escalating "still loading…" message;
+            // OkHttp owns each attempt's ~30s connect timeout (fastFallback races the IPs).
+            var attempt = 0
+            while (true) {
+                attempt++
+                repo.clearCache()
+                val channelsDeferred = async { repo.getChannels() }
+                val catsDeferred = async { repo.getCategories() }
+                val channels = channelsDeferred.await()
+                val cats = catsDeferred.await()
+                if (channels.isNotEmpty()) {
+                    allChannels = channels
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            hasSource = true,
+                            categories = listOf(ChannelCategory(ALL_CATEGORY_ID, "All")) + cats,
+                            channels = channels,
+                            selectedCategoryId = ALL_CATEGORY_ID,
+                            query = "",
+                        )
+                    }
+                    return@launch
+                }
+                if (attempt >= MAX_LOAD_ATTEMPTS) {
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            hasSource = true,
+                            channels = emptyList(),
+                            categories = listOf(ChannelCategory(ALL_CATEGORY_ID, "All")),
+                        )
+                    }
+                    return@launch
+                }
+                delay(RETRY_BACKOFF_MS)
             }
         }
     }
 
-    /** Re-attempt loading after a failure (e.g. the provider was unreachable). */
-    fun retry() {
-        repo.clearCache()
-        load()
-    }
+    /** Re-attempt loading (manual Retry, or after the provider was unreachable). */
+    fun retry() = load()
 
     fun selectCategory(id: String) {
         val filtered = filterByCategory(id)

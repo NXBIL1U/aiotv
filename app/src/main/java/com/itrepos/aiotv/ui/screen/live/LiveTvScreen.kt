@@ -25,11 +25,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
 
 // 10-foot overscan-safe insets, matching the other TV screens.
 private val TV_OVERSCAN_H = 48.dp
@@ -44,9 +49,7 @@ fun LiveTvScreen(
     val state by viewModel.state.collectAsState()
 
     if (state.isLoading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+        LoadingState()
         return
     }
 
@@ -108,6 +111,42 @@ fun LiveTvScreen(
                 )
                 ChannelList(state, onPlayChannel, viewModel)
             }
+        }
+    }
+}
+
+/**
+ * Loading spinner with a message that appears after ~4s and escalates the longer it takes, so a
+ * slow/unreachable provider doesn't look like a frozen blank screen. The ViewModel keeps retrying
+ * underneath; this is purely the on-screen status.
+ */
+@Composable
+private fun LoadingState() {
+    var elapsed by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            elapsed++
+        }
+    }
+    val message = when {
+        elapsed < 15 -> "Loading channels…"
+        elapsed < 30 -> "Still loading — your provider is taking a while…"
+        else -> "Your provider is slow to respond. Still trying…"
+    }
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+    ) {
+        CircularProgressIndicator()
+        if (elapsed >= 4) {
+            Text(
+                message,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
