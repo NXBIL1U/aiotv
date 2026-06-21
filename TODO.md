@@ -45,7 +45,7 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   emulator:** channels load and a channel plays (H.264 video confirmed). Audio decodes (AAC track
   + decoder running, focus granted) but the emulator doesn't route sound to the host — **confirm
   audio on phone/Fire TV hardware.**
-- **Live-TV core experience UI (2026-06-21, branch `feat/live-tv-core`):** replaced the bare
+- **Live-TV core experience UI (2026-06-21, merged to `main`):** replaced the bare
   channel list with a **category-first browser** — category sidebar (wide) / chips (compact),
   channel cards with **logos** (Coil), **instant search** across all channels, and **lazy
   per-channel now/next EPG** via Xtream `get_short_epg` (base64-decoded, cached, `Semaphore(4)`,
@@ -54,9 +54,16 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   Spec: `docs/superpowers/specs/2026-06-21-live-tv-core-experience-design.md`; plan:
   `docs/superpowers/plans/2026-06-21-live-tv-core-experience.md`. Builds clean; passed a scoped
   code review (epgCache→ConcurrentHashMap, retry-flood guard, dup-route removal, next-programme
-  fix). **On-device UI validation PENDING** — the IPTV provider went down mid-session (TCP
-  timeouts from Mac + emulator), so only the loading state was confirmed; verify the populated
-  browser (logos/categories/search/EPG) once the provider is back.
+  fix).
+- **Live-TV loading/error UX (2026-06-21, on `main`):** distinct **"provider unreachable" state
+  with Retry** (vs. "no source configured"); **progressive loading message** that appears ~4 s in
+  and escalates at 15 s / 30 s; **auto-retry** (a few attempts with backoff) before the error
+  state; OkHttp **connect timeout 30 s → 15 s per IP** so a dead IP no longer blocks a live one
+  for the full 30 s (true parallel IP racing needs OkHttp 5 `fastFallback` — see Optional). **All
+  of these validated on-device** during the provider outage (escalating message at 6/18/33 s,
+  3 auto-retries at 15 s/IP, then error+Retry; no crash).
+- **Live-TV still PENDING:** the **populated** browser (real channels/logos/categories/search/
+  now-next EPG/tap-to-play) — needs a reachable provider; the provider was down the whole session.
 
 ---
 
@@ -115,6 +122,10 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 ## ⚙️ Optional / housekeeping
 
 - [ ] `[P5]` Modernize toolchain (AGP / Kotlin / Compose BOM / Hilt / Coil). Media3 → 1.5.1 done.
+- [ ] `[P3/P5]` **OkHttp 5 `fastFallback` (Happy Eyeballs) for Live TV** — race a multi-IP IPTV
+      host's addresses in parallel so a live IP is reached in ~1 s even when others are dead.
+      Needs the OkHttp 4.12 → 5 upgrade (folds into the toolchain modernization above); until then
+      the 15 s-per-IP connect timeout is the 4.x stand-in. _(noted 2026-06-21)_
 - [ ] `[P5]` Replace deprecated `Icons.Filled.ArrowBack` with `Icons.AutoMirrored.Filled.ArrowBack`.
 - [ ] `[P5]` Update README (release signs with debug key; corrected `gradle.properties` guidance).
 - [ ] `[P5]` Add a `SessionStart` hook so Claude Code web sessions can build/lint.

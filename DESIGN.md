@@ -250,7 +250,10 @@ dumping ~340 MB (live+VOD+series) and OOM-killing the app on the Guide — fixed
 `get.php` URLs to the compact `player_api.php` live JSON, streaming/​capping generic M3U parsing,
 and playing live via raw **MPEG-TS** (Xtream HLS 401/403s on its tokenised segments). 27.5k
 channels load in ~1 s and a channel plays (H.264 video; audio decodes — confirm sound on hardware).
-A first **Live TV "core experience"** slice of Phase 3 is then built on `feat/live-tv-core`
-(category browser + logos + search + lazy now/next EPG; Guide/Live tabs merged into one) — code
-reviewed and building, but its populated-UI validation is pending an IPTV-provider outage that hit
-mid-session. Series still needs metadata + episode picker (§6a, Phase 2). Foundations (Phase 1) not started.
+A first **Live TV "core experience"** slice of Phase 3 is then built and **merged to `main`**
+(category browser + logos + search + lazy now/next EPG; Guide/Live tabs merged into one; a
+"provider unreachable" state with Retry; progressive loading messages + auto-retry; 15 s-per-IP
+connect timeout for faster failover). Code reviewed; the loading/error/retry paths are validated
+on-device, but the **populated** browser (real channels/logos/EPG) is still pending — the IPTV
+provider was down the whole session. Parallel IP racing (OkHttp 5 `fastFallback`) is a noted
+follow-up. Series still needs metadata + episode picker (§6a, Phase 2). Foundations (Phase 1) not started.
