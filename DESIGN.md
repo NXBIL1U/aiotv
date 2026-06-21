@@ -257,4 +257,12 @@ connect timeout for faster failover). Code reviewed and **fully validated on-dev
 loading/error/retry paths, plus the populated browser — category chips with real names, channel
 logos, instant search, and now/next EPG auto-loading for visible rows; tap-to-play works. (The
 provider's IP range is blocked by the owner's UK ISP during live football; validated over a VPN.)
-Parallel IP racing (OkHttp 5 `fastFallback`) is a noted follow-up. Series still needs metadata + episode picker (§6a, Phase 2). Foundations (Phase 1) not started.
+Parallel IP racing (OkHttp 5 `fastFallback`) is a noted follow-up. Series still needs metadata + episode picker (§6a, Phase 2).
+
+A **Live TV UX v2** then lands (branch `feat/live-tv-ux-v2`) that pulls **Phase-1 foundations** (a
+Room cache layer + reactive, cache-first repositories) and **Phase-3 favourites** forward: the app
+opens instantly from a Room disk cache and refreshes in the background; Live TV defaults to a
+**Region/Language scope (UK+US+EN)** → category → channels, with channel-search as the primary
+action, favourite channels & categories, recently-watched, and searchable region/category pickers.
+Built subagent-driven and final-reviewed. Remaining Phase-1 work: onboarding wizard, dedicated
+Sources screen, and wiring cache-invalidation to source edits.

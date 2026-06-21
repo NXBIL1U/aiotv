@@ -68,6 +68,19 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   **now/next EPG** auto-loading for visible rows (`get_short_epg` 200s; e.g. "● La Rosa de
   Guadalupe / Next 23:00 · Versión original"), with "—" for channels lacking EPG. Tapping a
   channel plays it. No crash. **Live TV core experience is complete + validated.**
+- **Live TV UX v2 (2026-06-22, branch `feat/live-tv-ux-v2`):** a ground-up redesign per UX
+  feedback — **cache-first Room persistence** (channels/categories/EPG persist to disk; the app
+  opens instantly and refreshes in the background; cold start with a fresh cache does **0**
+  network fetches; Home/Search read the same cache via `GetChannelsUseCase`); a **Region/Language
+  filter** defaulting to **UK+US+EN** (~7.2k channels vs 27.5k), derived by a unit-tested
+  `RegionClassifier` (OTHER bucket + global search as the safety net); **favourite channels AND
+  categories** + **recently-watched** (persisted); and a **"For You" landing** with
+  channel-search as the primary action, a searchable **Category picker** + multi-select **Region
+  picker** (replacing the 322-item chip strip). Spec/plan in `docs/superpowers/`. Built
+  subagent-driven, final-reviewed (fixed: search-collector leak, search-clear not restoring the
+  scoped list, plain-M3U regression, clearCache wiping favourites, over-eager region codes).
+  **Validated on the phone emulator** (via VPN): instant cache-first opens, region default,
+  favourites/recents, search + clear, pickers. _Pending: validate on TV/foldable form factors._
 - **Network note:** the owner's UK ISP (Virgin Media) **blocks the IPTV provider's IP range**
   (`149.18.45.x`) — confirmed by TCP-unreachable from Virgin vs. reachable over a VPN. So live TV
   needs a VPN on the owner's network during ISP IPTV blocking (common around live football).
@@ -93,12 +106,16 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 
 ## 🐞 Known bugs to fix
 
-- [ ] `[P1]` **No auto-refresh / pull-to-refresh** — Home loads once in `init`; adding/removing a
+- [~] `[P1]` **No auto-refresh / pull-to-refresh** — Home loads once in `init`; adding/removing a
       source doesn't update the UI until app restart. Make repositories reactive + add cache.
+      _(Live TV is now reactive + cache-first via Room (v2); Home/Search read the same cache.
+      Still TODO: explicit pull-to-refresh gesture, and Home/Search reacting live to source edits.)_
 - [ ] `[P1]` **Redundant Addons tab + Live/Watchlist stubs** — consolidate into the dedicated
       Sources screen (per DESIGN decision 1). _(Partly done 2026-06-21: the duplicate Guide/Live
       tabs are now a single "Live TV" destination; Addons tab + Watchlist stub still to fold in.)_
 - [ ] `[P1]` **Cache invalidation on settings change** — wire `clearCache()` / reactive sources.
+      _(v2 note: `LiveTvRepository.clearCache()` now exists and is scoped to cache tables only —
+      preserves favourites/recents — but is not yet called on a source/settings change.)_
 - [ ] `[P1]` **Settings title under status bar** — missing safe-area/window-insets padding.
 - [ ] `[P2]` **Series usability** — series now load, but (a) Detail shows raw id (no metadata
       provider) and (b) there's **no season/episode picker** + no auto-select. Build the
