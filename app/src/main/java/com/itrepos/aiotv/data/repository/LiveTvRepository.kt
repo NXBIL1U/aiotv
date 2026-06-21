@@ -318,15 +318,16 @@ class LiveTvRepository @Inject constructor(
     }
 
     /**
-     * Wipe all cached tables. Call before a source-change and follow with `refresh(force=true)`.
+     * Wipe ONLY the re-fetchable cache tables (channels, categories, EPG, cache_meta). Call
+     * before a source-change and follow with `refresh(force=true)`.
+     *
+     * Favourites and recently-watched are user data, not cache, so they are intentionally left
+     * intact — wiping them here would silently destroy a user's stars/history on every refresh.
      */
     suspend fun clearCache() = withContext(Dispatchers.IO) {
         channelDao.deleteAll()
         categoryDao.deleteAll()
         epgDao.deleteAll()
-        recentlyWatchedDao.deleteAll()
-        favouriteDao.deleteAllFavChannels()
-        favouriteDao.deleteAllFavCategories()
         cacheMetaDao.deleteAll()
     }
 
