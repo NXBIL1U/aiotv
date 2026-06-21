@@ -3,11 +3,10 @@ package com.itrepos.aiotv.ui.navigation
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.itrepos.aiotv.ui.screen.addons.AddonsScreen
 import com.itrepos.aiotv.ui.screen.detail.DetailScreen
@@ -18,65 +17,84 @@ import com.itrepos.aiotv.ui.screen.search.SearchScreen
 import com.itrepos.aiotv.ui.screen.settings.SettingsScreen
 import java.net.URLDecoder
 
+// Top-level destinations reachable from the nav rail / bottom bar. Navigating
+// between these should switch tabs (single instance, saved state) rather than
+// stack duplicates; everything else (Detail, Player) is pushed on top.
+private val topLevelRoutes = setOf(
+    Screen.Home.route,
+    Screen.Search.route,
+    Screen.Guide.route,
+    Screen.Live.route,
+    Screen.Watchlist.route,
+    Screen.Addons.route,
+    Screen.Settings.route,
+)
+
 @Composable
 fun AppNavigation(isTv: Boolean, windowSizeClass: WindowSizeClass) {
     val navController = rememberNavController()
-    var selectedScreen by rememberSaveable { mutableStateOf(Screen.Home.route) }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val selectedScreen = backStackEntry?.destination?.route ?: Screen.Home.route
+
+    val onNavigate: (String) -> Unit = { route ->
+        if (route in topLevelRoutes) {
+            navController.navigate(route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        } else {
+            navController.navigate(route)
+        }
+    }
 
     NavHost(navController = navController, startDestination = Screen.Home.route) {
         composable(Screen.Home.route) {
-            selectedScreen = Screen.Home.route
             HomeScreen(
                 isTv = isTv,
                 windowSizeClass = windowSizeClass,
                 selectedScreen = selectedScreen,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = onNavigate,
             )
         }
         composable(Screen.Search.route) {
-            selectedScreen = Screen.Search.route
             SearchScreen(
                 isTv = isTv,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = onNavigate,
                 onBack = { navController.popBackStack() },
             )
         }
         composable(Screen.Guide.route) {
-            selectedScreen = Screen.Guide.route
             TvGuideScreen(
                 isTv = isTv,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = onNavigate,
                 onPlayChannel = { url, title ->
                     navController.navigate(Screen.Player.createRoute(url, title))
                 },
             )
         }
         composable(Screen.Addons.route) {
-            selectedScreen = Screen.Addons.route
             AddonsScreen(
                 isTv = isTv,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = onNavigate,
             )
         }
         composable(Screen.Live.route) {
-            selectedScreen = Screen.Live.route
-            com.itrepos.aiotv.ui.screen.guide.TvGuideScreen(
+            TvGuideScreen(
                 isTv = isTv,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = onNavigate,
                 onPlayChannel = { url, title ->
                     navController.navigate(Screen.Player.createRoute(url, title))
                 },
             )
         }
         composable(Screen.Watchlist.route) {
-            selectedScreen = Screen.Watchlist.route
-            com.itrepos.aiotv.ui.screen.addons.AddonsScreen(isTv = isTv, onNavigate = { navController.navigate(it) })
+            AddonsScreen(isTv = isTv, onNavigate = onNavigate)
         }
         composable(Screen.Settings.route) {
-            selectedScreen = Screen.Settings.route
             SettingsScreen(
                 isTv = isTv,
-                onNavigate = { navController.navigate(it) },
+                onNavigate = onNavigate,
             )
         }
         composable(Screen.Player.route) { back ->

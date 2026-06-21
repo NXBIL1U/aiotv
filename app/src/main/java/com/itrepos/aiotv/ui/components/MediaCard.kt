@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -14,12 +15,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.itrepos.aiotv.ui.theme.Background
+import com.itrepos.aiotv.ui.theme.SurfaceElevated
 
 @Composable
 fun MediaCard(
@@ -38,10 +40,14 @@ fun MediaCard(
     ) {
         Column {
             Box(Modifier.aspectRatio(aspectRatio)) {
+                val fallback = ColorPainter(SurfaceElevated)
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = title,
                     contentScale = ContentScale.Crop,
+                    placeholder = fallback,
+                    error = fallback,
+                    fallback = fallback,
                     modifier = Modifier.matchParentSize(),
                 )
                 Box(
@@ -76,11 +82,13 @@ fun MediaCard(
                         Box(
                             Modifier
                                 .fillMaxWidth()
+                                .height(4.dp)
                                 .background(Color.White.copy(alpha = 0.3f))
                         )
                         Box(
                             Modifier
                                 .fillMaxWidth(p.coerceIn(0f, 1f))
+                                .height(4.dp)
                                 .background(Color(0xFF6C63FF))
                         )
                     }

@@ -1,5 +1,6 @@
 package com.itrepos.aiotv.ui.screen.settings
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,14 +8,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,16 +30,23 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.R
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(
     isTv: Boolean,
@@ -51,6 +63,9 @@ fun SettingsScreen(
     var xmltvUrl by rememberSaveable(state.xmltvUrl) { mutableStateOf(state.xmltvUrl) }
     var newAddonUrl by remember { mutableStateOf("") }
 
+    var torBoxKeyVisible by rememberSaveable { mutableStateOf(false) }
+    var xtreamPassVisible by rememberSaveable { mutableStateOf(false) }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -61,46 +76,111 @@ fun SettingsScreen(
         Spacer(Modifier.height(16.dp))
 
         SectionHeader("TorBox")
-        OutlinedTextField(
-            value = torBoxKey,
-            onValueChange = { torBoxKey = it },
-            label = { Text(stringResource(R.string.settings_torbox_key)) },
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        BringIntoViewField {
+            OutlinedTextField(
+                value = torBoxKey,
+                onValueChange = { torBoxKey = it },
+                label = { Text(stringResource(R.string.settings_torbox_key)) },
+                singleLine = true,
+                visualTransformation = if (torBoxKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    PasswordToggle(
+                        visible = torBoxKeyVisible,
+                        onToggle = { torBoxKeyVisible = !torBoxKeyVisible },
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
         SectionHeader("IPTV — Xtream Codes")
-        OutlinedTextField(value = xtreamServer, onValueChange = { xtreamServer = it }, label = { Text(stringResource(R.string.settings_xtream_server)) }, modifier = Modifier.fillMaxWidth())
+        BringIntoViewField {
+            OutlinedTextField(
+                value = xtreamServer,
+                onValueChange = { xtreamServer = it },
+                label = { Text(stringResource(R.string.settings_xtream_server)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = xtreamUser, onValueChange = { xtreamUser = it }, label = { Text(stringResource(R.string.settings_xtream_user)) }, modifier = Modifier.fillMaxWidth())
+        BringIntoViewField {
+            OutlinedTextField(
+                value = xtreamUser,
+                onValueChange = { xtreamUser = it },
+                label = { Text(stringResource(R.string.settings_xtream_user)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = xtreamPass, onValueChange = { xtreamPass = it }, label = { Text(stringResource(R.string.settings_xtream_pass)) }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        BringIntoViewField {
+            OutlinedTextField(
+                value = xtreamPass,
+                onValueChange = { xtreamPass = it },
+                label = { Text(stringResource(R.string.settings_xtream_pass)) },
+                singleLine = true,
+                visualTransformation = if (xtreamPassVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    PasswordToggle(
+                        visible = xtreamPassVisible,
+                        onToggle = { xtreamPassVisible = !xtreamPassVisible },
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
         SectionHeader("IPTV — M3U")
-        OutlinedTextField(value = m3uUrl, onValueChange = { m3uUrl = it }, label = { Text("M3U URL") }, modifier = Modifier.fillMaxWidth())
+        BringIntoViewField {
+            OutlinedTextField(
+                value = m3uUrl,
+                onValueChange = { m3uUrl = it },
+                label = { Text("M3U URL") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = xmltvUrl, onValueChange = { xmltvUrl = it }, label = { Text("XMLTV EPG URL") }, modifier = Modifier.fillMaxWidth())
+        BringIntoViewField {
+            OutlinedTextField(
+                value = xmltvUrl,
+                onValueChange = { xmltvUrl = it },
+                label = { Text("XMLTV EPG URL") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         Spacer(Modifier.height(16.dp))
         SectionHeader("Stremio Addons")
         state.addonUrls.forEach { url ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(url, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
                 IconButton(onClick = { viewModel.removeAddon(url) }) {
                     Icon(Icons.Default.Delete, contentDescription = "Remove")
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = newAddonUrl,
-                onValueChange = { newAddonUrl = it },
-                label = { Text(stringResource(R.string.settings_addon_url)) },
-                modifier = Modifier.weight(1f),
-            )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            BringIntoViewField(modifier = Modifier.weight(1f)) {
+                OutlinedTextField(
+                    value = newAddonUrl,
+                    onValueChange = { newAddonUrl = it },
+                    label = { Text(stringResource(R.string.settings_addon_url)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             IconButton(onClick = {
                 viewModel.addAddon(newAddonUrl)
                 newAddonUrl = ""
@@ -125,7 +205,42 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun PasswordToggle(visible: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        Icon(
+            imageVector = if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+            contentDescription = if (visible) "Hide password" else "Show password",
+        )
+    }
+}
+
+/**
+ * Wraps a focusable field so it scrolls into view when it (or a descendant) gains focus.
+ * Critical for D-pad navigation through this scrolling form on TV.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BringIntoViewField(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val requester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .bringIntoViewRequester(requester)
+            .onFocusEvent { focusState ->
+                if (focusState.hasFocus) {
+                    scope.launch { requester.bringIntoView() }
+                }
+            }
+    ) {
+        content()
+    }
+}
+
+@Composable
 private fun SectionHeader(title: String) {
     Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-    Divider(Modifier.padding(vertical = 4.dp))
+    HorizontalDivider(Modifier.padding(vertical = 4.dp))
 }

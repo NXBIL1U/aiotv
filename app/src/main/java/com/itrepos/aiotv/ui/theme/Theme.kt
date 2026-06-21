@@ -22,10 +22,10 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun AioTvTheme(content: @Composable () -> Unit) {
+fun AioTvTheme(isTv: Boolean = false, content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DarkColorScheme,
-        typography = AioTypography,
+        typography = if (isTv) AioTvTypography else AioTypography,
         content = content
     )
 }
