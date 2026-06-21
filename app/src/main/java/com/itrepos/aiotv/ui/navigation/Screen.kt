@@ -3,7 +3,6 @@ package com.itrepos.aiotv.ui.navigation
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Search : Screen("search")
-    object Guide : Screen("guide")
     object Live : Screen("live")
     object Watchlist : Screen("watchlist")
     object Addons : Screen("addons")
