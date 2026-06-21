@@ -24,13 +24,13 @@ object RegionClassifier {
         // before the generic "AMERICA" catch below).
         // We match as whole tokens (surrounded by non-alpha or at string boundary)
         // to avoid false positives (e.g. "AMERICAN" should → US, not LATAM).
-        if (containsToken(upper, "DO")) return "LATAM"   // Dominican Republic
-        if (containsToken(upper, "EC")) return "LATAM"   // Ecuador
-        if (containsToken(upper, "HN")) return "LATAM"   // Honduras
-        if (containsToken(upper, "HT")) return "LATAM"   // Haiti
-        if (containsToken(upper, "PA")) return "LATAM"   // Panama
+        //
+        // NOTE: the bare 2-letter codes DO, EC, HN, HT, PA, CO were intentionally REMOVED —
+        // they collide with common English category words (e.g. "CO" in "DISCOVERY CO", "PA"
+        // for Pennsylvania) and ran BEFORE the US/UK checks, mis-dropping English categories
+        // into LATAM (out of the default scope). Only the unambiguous signals remain:
+        // "LATIN AMERICA"/"LATINO" (above) and the MX/AR codes.
         if (containsToken(upper, "MX")) return "LATAM"   // Mexico
-        if (containsToken(upper, "CO")) return "LATAM"   // Colombia
         // AR by itself = Argentina (LATAM); but "AR/AF" is handled as MENA below.
         // We defer plain "AR" to MENA check so "AR/AF" wins; if no MENA token
         // matches but "AR" alone is present → LATAM.
