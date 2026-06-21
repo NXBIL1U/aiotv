@@ -172,7 +172,17 @@ fun PhoneBottomNav(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shortItems = navItems.take(5)
+    // Curated 5 for the phone bar — must include Settings/Addons so the app is
+    // configurable on phone (the old take(5) cut Settings off entirely, leaving
+    // no way to add a source). Drops the stub Live/Watchlist duplicates.
+    val phoneRoutes = listOf(
+        Screen.Home.route,
+        Screen.Search.route,
+        Screen.Guide.route,
+        Screen.Addons.route,
+        Screen.Settings.route,
+    )
+    val shortItems = phoneRoutes.mapNotNull { route -> navItems.find { it.screen.route == route } }
     NavigationBar(
         modifier = modifier,
         containerColor = SurfaceCard,
