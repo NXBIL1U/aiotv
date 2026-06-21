@@ -87,10 +87,12 @@ class LiveTvViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
+                // Record every attempt — including the empty/failed result (null → no-EPG
+                // sentinel) — so the containsKey guard above stops a re-fetch flood when the
+                // user scrolls a channel off-screen and back.
                 val nowNext = epgSemaphore.withPermit { repo.getShortEpg(channel) }
-                if (nowNext != null) {
-                    _state.update { it.copy(epg = it.epg + (channel.id to nowNext)) }
-                }
+                    ?: EpgNowNext(null, null)
+                _state.update { it.copy(epg = it.epg + (channel.id to nowNext)) }
             } finally {
                 synchronized(epgInFlight) { epgInFlight.remove(channel.id) }
             }

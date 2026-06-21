@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,7 +30,9 @@ class IptvRepository @Inject constructor(
     private var cachedEpg: List<EpgProgram> = emptyList()
     private var cachedCategories: List<ChannelCategory> = emptyList()
     // streamId -> (fetchedAtMs, nowNext); short-lived so now/next stays roughly current.
-    private val epgCache = mutableMapOf<String, Pair<Long, EpgNowNext>>()
+    // Concurrent: read on the caller's dispatcher, written from Dispatchers.IO across up to
+    // Semaphore(4) parallel EPG fetches.
+    private val epgCache = ConcurrentHashMap<String, Pair<Long, EpgNowNext>>()
     private val epgTtlMs = 10 * 60 * 1000L
 
     suspend fun getChannels(): List<Channel> {
@@ -112,8 +115,8 @@ class IptvRepository @Inject constructor(
                     )
                 }.sortedBy { it.startMs }
                 val now = entries.firstOrNull { it.startMs <= nowMs && it.endMs > nowMs }
+                // Only a genuinely upcoming programme is "next"; never fall back to a past entry.
                 val next = entries.firstOrNull { it.startMs > nowMs }
-                    ?: entries.firstOrNull { it != now }
                 EpgNowNext(now, next).also { epgCache[channel.id] = nowMs to it }
             } catch (e: Exception) {
                 null

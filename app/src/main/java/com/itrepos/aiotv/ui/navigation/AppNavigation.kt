@@ -23,7 +23,6 @@ import java.net.URLDecoder
 private val topLevelRoutes = setOf(
     Screen.Home.route,
     Screen.Search.route,
-    Screen.Guide.route,
     Screen.Live.route,
     Screen.Watchlist.route,
     Screen.Addons.route,
@@ -62,14 +61,6 @@ fun AppNavigation(isTv: Boolean, windowSizeClass: WindowSizeClass) {
                 isTv = isTv,
                 onNavigate = onNavigate,
                 onBack = { navController.popBackStack() },
-            )
-        }
-        composable(Screen.Guide.route) {
-            LiveTvScreen(
-                isTv = isTv,
-                onPlayChannel = { url, title ->
-                    navController.navigate(Screen.Player.createRoute(url, title))
-                },
             )
         }
         composable(Screen.Addons.route) {
