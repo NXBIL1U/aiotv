@@ -2,6 +2,7 @@ package com.itrepos.aiotv.data.remote.stremio
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class StremioManifest(
@@ -9,7 +10,10 @@ data class StremioManifest(
     val version: String,
     val name: String,
     val description: String? = null,
-    val resources: List<String> = emptyList(),
+    // Stremio allows resources as either ["stream", ...] (short) or
+    // [{"name":"stream",...}] (full, e.g. Torrentio). JsonElement tolerates both
+    // so a valid addon manifest never fails to parse.
+    val resources: List<JsonElement> = emptyList(),
     val types: List<String> = emptyList(),
     val catalogs: List<StremioCatalogDef> = emptyList(),
     val idPrefixes: List<String> = emptyList(),
@@ -40,7 +44,10 @@ data class StremioMeta(
     val poster: String? = null,
     val background: String? = null,
     val description: String? = null,
-    val year: Int? = null,
+    // year is a STRING in Stremio: movies "2026", series a range like "2026–" /
+    // "2008-2013". Typing it Int? made every series catalog fail to parse (the
+    // range isn't coercible) and silently drop — the "series don't load" bug.
+    val year: String? = null,
     val genres: List<String> = emptyList(),
     @SerialName("imdbRating") val imdbRating: String? = null,
     val videos: List<StremioVideo> = emptyList(),

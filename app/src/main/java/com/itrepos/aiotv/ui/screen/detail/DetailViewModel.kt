@@ -47,7 +47,7 @@ class DetailViewModel @Inject constructor(
                 _state.value = DetailState(
                     isLoading = false,
                     meta = meta?.let { m ->
-                        MediaItem(m.id, m.type, m.name, m.description, m.poster, m.background, m.year, m.genres, m.imdbRating)
+                        MediaItem(m.id, m.type, m.name, m.description, m.poster, m.background, m.year?.take(4)?.toIntOrNull(), m.genres, m.imdbRating)
                     },
                     streams = ranked,
                 )

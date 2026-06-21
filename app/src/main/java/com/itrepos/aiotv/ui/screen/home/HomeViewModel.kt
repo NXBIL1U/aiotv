@@ -49,9 +49,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val moviesDeferred = async { getCatalog("movie") }
-                val seriesDeferred = async { getCatalog("series") }
-                val channelsDeferred = async { getChannels() }
+                // runCatching per branch: a failure in one source (bad addon / IPTV)
+                // must not fail the sibling async and crash the parent scope.
+                val moviesDeferred = async { runCatching { getCatalog("movie") }.getOrDefault(emptyList()) }
+                val seriesDeferred = async { runCatching { getCatalog("series") }.getOrDefault(emptyList()) }
+                val channelsDeferred = async { runCatching { getChannels() }.getOrDefault(emptyList()) }
 
                 val movies = moviesDeferred.await()
                 val series = seriesDeferred.await()

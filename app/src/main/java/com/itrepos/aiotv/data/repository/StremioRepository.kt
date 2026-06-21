@@ -23,12 +23,15 @@ class StremioRepository @Inject constructor(
 
     private suspend fun getManifests(): List<Pair<String, StremioManifest>> {
         val urls = appDataStore.addonUrls.first()
-        return urls.map { url ->
-            val manifest = manifestCache.getOrPut(url) {
-                stremioApi.getManifest(url)
+        return urls.mapNotNull { url ->
+            try {
+                val manifest = manifestCache[url]
+                    ?: stremioApi.getManifest(url).also { manifestCache[url] = it }
+                val baseUrl = url.removeSuffix("/manifest.json")
+                baseUrl to manifest
+            } catch (_: Exception) {
+                null // skip a malformed/unreachable addon rather than failing them all
             }
-            val baseUrl = url.removeSuffix("/manifest.json")
-            baseUrl to manifest
         }
     }
 
@@ -71,7 +74,7 @@ class StremioRepository @Inject constructor(
 
     private fun StremioMeta.toMediaItem() = MediaItem(
         id = id, type = type, name = name, description = description,
-        posterUrl = poster, backdropUrl = background, year = year,
+        posterUrl = poster, backdropUrl = background, year = year?.take(4)?.toIntOrNull(),
         genres = genres, imdbRating = imdbRating,
     )
 
