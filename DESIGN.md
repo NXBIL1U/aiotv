@@ -89,6 +89,42 @@ This makes "add Real-Debrid support" or "add a new catalog provider" a contained
   hinge-aware control placement, robust error/retry (P0 foundation already in place).
 - Live vs VOD handled by the same player with mode-aware controls (no seek bar tricks for live).
 
+## 6a. One-tap playback & series UX (Netflix-style)
+
+**Principle: the user never picks a stream.** They tap a title (or episode); the app
+auto-selects the best *working* source and plays. Validated against live data (2026-06-21):
+Cinemeta returns full episode lists; Torrentio+TorBox returns per-episode **cached** (`[TB+]`,
+direct-URL) streams with quality labels (e.g. `tt0903747:1:1` → 15 streams, all cached).
+
+**Auto-select ("best working link"):**
+1. Filter to **cached** streams (direct `url`, instant) for the default path; ignore bare
+   infoHash unless nothing else is available.
+2. **Rank by quality**, honouring user preference: **default 1080p**; a **Settings toggle sets
+   the default to 1080p or 4K**; a **per-play control** can switch to 4K manually.
+3. **Play the top candidate; on any `PlayerError`, silently fail over to the next** (extends the
+   P0 `Player.Listener`). "Best working" = optimistic play + automatic failover, not pre-flight
+   probing.
+4. A **discreet "Sources / quality" override** (hidden by default) lets power users pick a
+   specific stream.
+
+**Metadata — Cinemeta as a built-in default.** Treat a meta provider (Cinemeta) as always-on
+infrastructure, **not** a user addon (mirrors Stremio). Gives every title a real
+title/description/backdrop, and for series the **episode list** — `meta.videos[]` carries
+season, number, name, thumbnail, overview, air date.
+
+**Movie flow:** tap → Detail (backdrop, title, description, **Play/Resume**) → auto-select →
+play with failover. No stream list.
+
+**Series flow:** tap → Detail (backdrop/title/description) + **Season selector** + **Episode
+list** (thumbnail, number, title, runtime, progress) from `meta.videos[]` → tap episode →
+request streams for `ttID:S:E` → auto-select → play. **Next-episode autoplay** falls out.
+
+**Code touch-points:** add `name`/`thumbnail`/`overview` to `StremioVideo` + group by season;
+replace the Detail stream-list with movie/series layouts; `DetailViewModel.playBest()` returns a
+ranked candidate list; the Player accepts an **ordered candidate list** and auto-advances on
+error; a small, unit-testable `pickBestStreams()` ranker. Builds on `StreamResolver` + the P0
+player listener.
+
 ## 7. Technical architecture
 
 - **Layers:** keep `data / domain / ui`. Add a **cache layer (Room)** and **Paging 3** for
@@ -107,8 +143,9 @@ This makes "add Real-Debrid support" or "add a new catalog provider" a contained
   TV: QR / phone-companion entry to avoid on-remote typing.
 - **Home:** hero carousel, horizontally-scrolling rails with stable focus; "Live now" rail
   shows current programme per channel; Continue Watching that actually resumes.
-- **Detail:** seasons/episodes for series; stream list sorted by cached → quality → size with
-  clear badges; one-press play of best stream + "choose source" affordance.
+- **Detail:** **auto-select + one-tap play** (no manual stream list) — see §6a. Movies: Play/
+  Resume. Series: season selector + episode list with thumbnails. Discreet "Sources/quality"
+  override is hidden by default.
 - **Live/EPG:** time-grid guide navigable by D-pad and touch; now/next; channel groups &
   favourites; catch-up where the provider supports it.
 - **Search:** instant results across VOD + channels; voice on TV; recent searches.
@@ -136,12 +173,16 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
 - **Exit:** adding/removing a source updates the UI live; first-run wizard configures the app.
 
 ### Phase 2 — Core experience (VOD)
-- **Goal:** make browsing → detail → play feel premium.
-- **Deliverables:** Home rails done right (genres, trending, working Continue Watching);
-  Detail with seasons/episodes + stream picker; Player polish (subtitles, audio/quality,
-  next-episode autoplay, fold-aware, resize).
-- **Absorbs TODO:** Continue Watching resume fix; hinge/fold awareness; ArrowBack deprecation.
-- **Exit:** binge a series end-to-end with resume and autoplay.
+- **Goal:** make browsing → detail → play feel premium (Netflix-style; see §6a).
+- **Deliverables:** **auto-select best-working stream + failover** (no manual list); **Cinemeta
+  as built-in meta provider**; movie Detail (Play/Resume); **series Detail with season selector
+  + episode list** (`meta.videos[]`); **quality preference** (default 1080p, 1080p/4K setting +
+  per-play 4K); discreet sources override; Home rails done right (genres, working Continue
+  Watching); Player polish (subtitles, audio track, next-episode autoplay, fold-aware, resize).
+- **Absorbs TODO:** Continue Watching resume fix; hinge/fold awareness; ArrowBack deprecation;
+  Detail poster on phone; `StremioVideo` needs `name`/`thumbnail`/`overview`.
+- **Exit:** search/click a movie or series → one tap → it plays the best cached source; binge a
+  series end-to-end with resume and next-episode autoplay.
 
 ### Phase 3 — Live TV
 - **Goal:** first-class IPTV.
@@ -184,11 +225,24 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
 5. **Profiles → single user.** One watchlist / history; aligns with Trakt's one-account model.
 6. **Live IPTV → catch-up yes, recording no.** Timeshift/replay in the Live TV phase
    (provider-dependent); no DVR/recording.
+7. **Playback → auto-select, no manual stream list** (§6a). Cached-first, quality-ranked, with
+   automatic failover on error; discreet sources override kept for power users.
+8. **Default quality → 1080p**, with a Settings toggle to default to 1080p **or 4K**, plus a
+   per-play manual 4K switch.
+9. **Cinemeta → built-in default meta provider** (always on; not a user-managed addon) — powers
+   titles/descriptions and series episode lists.
+10. **Tesla casting → parked** (see [`TESLA.md`](TESLA.md)) — owner uses a screen-mirroring app
+    (name TBD); revisit once identified.
 
 ### Non-goals (current scope)
 No offline downloads · no multiple profiles · no DVR/recording · no app backend of our own.
 
 ## 12. Where we are now
 
-See [`TODO.md`](TODO.md) for the live checklist. Summary: build + browse verified on phone;
-playback and TV/foldable verification pending; foundations (Phase 1) not yet started.
+See [`TODO.md`](TODO.md) for the live checklist. Summary (2026-06-21): **Phase 0 largely done** —
+verified on emulators against the owner's real addons (Netflix catalog + Torrentio+TorBox):
+movie **playback works** end-to-end (Path B, cached direct URLs), **series load** (fixed a
+`year` parse bug), and **search** works. Found/fixed 4 bugs (manifest `resources` type, resilient
+manifest load, async-crash guard, series `year`) — **currently local/uncommitted** pending a safe
+way to land them without clobbering the owner's parallel work. Series still needs metadata +
+episode picker (§6a, Phase 2). Live TV/IPTV not yet validated. Foundations (Phase 1) not started.

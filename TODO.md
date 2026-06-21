@@ -28,7 +28,11 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - **Build/repo fixes:** added missing `gradle.properties` (`android.useAndroidX=true`) and
   un-ignored it; fixed `SearchScreen` missing `items` import. Project compiles.
 - **Nav fix:** phone bottom bar now includes Settings/Addons.
-- **Verified live:** compiles, installs, browses on a phone emulator (Cinemeta → Hero + rails).
+- **Addon robustness (2026-06-21):** manifest `resources` accepts object-form (Torrentio no
+  longer crashes the app); resilient per-addon manifest loading; `async`/coroutine crash guard
+  in Home; **series `year` range-string parse fix** (root cause of "series don't load").
+- **Verified live:** end-to-end on emulators with the owner's real addons (Netflix catalog +
+  Torrentio+TorBox) — movie playback, series listing, and search all work.
 
 ---
 
@@ -40,8 +44,11 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       move **and center-select navigation**, TV typography. _(2026-06-21)_
 - [x] **Foldable emulator** — side rail when unfolded ↔ bottom bar when folded; switches live
       on fold. _(2026-06-21)_
-- [ ] `[P0]` **Real video playback** — STILL BLOCKED: needs a streams addon or TorBox key
-      (Cinemeta provides catalog/metadata only, no streams).
+- [x] **Real video playback** — movie plays end-to-end via Torrentio+TorBox cached direct URLs
+      (Path B; H.264+AAC decoding confirmed). _(2026-06-21)_
+- [x] **Series load** — fixed after the `year` parse bug (see Done). _(2026-06-21)_
+- [x] **Search** — returns catalog results ("Movies & Series"). _(2026-06-21)_
+- [ ] **Live TV / IPTV** — not yet validated (needs the M3U saved via the Save button).
 - [ ] **Fire TV** — must be tested on hardware (no Fire OS emulator exists).
 
 ## 🐞 Known bugs to fix
@@ -52,6 +59,10 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       Sources screen (per DESIGN decision 1).
 - [ ] `[P1]` **Cache invalidation on settings change** — wire `clearCache()` / reactive sources.
 - [ ] `[P1]` **Settings title under status bar** — missing safe-area/window-insets padding.
+- [ ] `[P2]` **Series usability** — series now load, but (a) Detail shows raw id (no metadata
+      provider) and (b) there's **no season/episode picker** + no auto-select. Build the
+      Netflix-style flow per **DESIGN §6a** (Cinemeta built-in meta, season/episode list,
+      one-tap auto-select + failover). _(found 2026-06-21)_
 - [ ] `[P2]` **Continue Watching resume broken for TorBox** — keyed on the ephemeral resolved
       URL; store a stable content id (+ title/poster) in `WatchProgress`.
 - [ ] `[P2]` **No hinge/fold posture awareness** — player should avoid the fold crease
