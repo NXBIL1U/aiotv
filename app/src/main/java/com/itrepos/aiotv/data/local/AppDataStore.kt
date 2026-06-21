@@ -22,6 +22,7 @@ class AppDataStore @Inject constructor(
         val KEY_M3U_URL = stringPreferencesKey("m3u_url")
         val KEY_XMLTV_URL = stringPreferencesKey("xmltv_url")
         val KEY_ADDON_URLS = stringSetPreferencesKey("addon_urls")
+        val KEY_GROUP_FILTER = stringSetPreferencesKey("channel_group_filter")
     }
 
     val torBoxApiKey: Flow<String> = dataStore.data.map { it[KEY_TORBOX_API_KEY] ?: "" }
@@ -31,6 +32,7 @@ class AppDataStore @Inject constructor(
     val m3uUrl: Flow<String> = dataStore.data.map { it[KEY_M3U_URL] ?: "" }
     val xmltvUrl: Flow<String> = dataStore.data.map { it[KEY_XMLTV_URL] ?: "" }
     val addonUrls: Flow<Set<String>> = dataStore.data.map { it[KEY_ADDON_URLS] ?: emptySet() }
+    val channelGroupFilter: Flow<Set<String>> = dataStore.data.map { it[KEY_GROUP_FILTER] ?: emptySet() }
 
     suspend fun setTorBoxApiKey(key: String) = dataStore.edit { it[KEY_TORBOX_API_KEY] = key }
     suspend fun setXtreamServer(url: String) = dataStore.edit { it[KEY_XTREAM_SERVER] = url }
@@ -46,4 +48,5 @@ class AppDataStore @Inject constructor(
         val current = it[KEY_ADDON_URLS] ?: emptySet()
         it[KEY_ADDON_URLS] = current - url
     }
+    suspend fun setChannelGroupFilter(groups: Set<String>) = dataStore.edit { it[KEY_GROUP_FILTER] = groups }
 }

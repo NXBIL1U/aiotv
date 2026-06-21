@@ -3,6 +3,7 @@ package com.itrepos.aiotv.ui.screen.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.itrepos.aiotv.data.local.AppDataStore
+import com.itrepos.aiotv.data.repository.IptvRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,11 +20,15 @@ data class SettingsState(
     val xmltvUrl: String = "",
     val addonUrls: Set<String> = emptySet(),
     val saved: Boolean = false,
+    val availableGroups: List<String> = emptyList(),
+    val enabledGroups: Set<String> = emptySet(),
+    val isFetchingGroups: Boolean = false,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val store: AppDataStore,
+    private val iptvRepository: IptvRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsState())
@@ -50,6 +55,9 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             store.xmltvUrl.collect { _state.value = _state.value.copy(xmltvUrl = it) }
+        }
+        viewModelScope.launch {
+            store.channelGroupFilter.collect { v -> _state.value = _state.value.copy(enabledGroups = v) }
         }
     }
 
@@ -79,5 +87,34 @@ class SettingsViewModel @Inject constructor(
 
     fun removeAddon(url: String) {
         viewModelScope.launch { store.removeAddonUrl(url) }
+    }
+
+    fun fetchGroups() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isFetchingGroups = true)
+            val groups = iptvRepository.fetchGroupNames()
+            _state.value = _state.value.copy(availableGroups = groups, isFetchingGroups = false)
+        }
+    }
+
+    fun toggleGroup(group: String, enabled: Boolean) {
+        val current = _state.value.enabledGroups.toMutableSet()
+        if (enabled) current += group else current -= group
+        _state.value = _state.value.copy(enabledGroups = current)
+        viewModelScope.launch { store.setChannelGroupFilter(current) }
+        iptvRepository.clearCache()
+    }
+
+    fun selectAllGroups() {
+        val all = _state.value.availableGroups.toSet()
+        _state.value = _state.value.copy(enabledGroups = all)
+        viewModelScope.launch { store.setChannelGroupFilter(all) }
+        iptvRepository.clearCache()
+    }
+
+    fun clearGroupFilter() {
+        _state.value = _state.value.copy(enabledGroups = emptySet())
+        viewModelScope.launch { store.setChannelGroupFilter(emptySet()) }
+        iptvRepository.clearCache()
     }
 }

@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,9 +32,10 @@ class IptvRepository @Inject constructor(
         val server = appDataStore.xtreamServer.first()
         val user = appDataStore.xtreamUser.first()
         val pass = appDataStore.xtreamPass.first()
+        val groupFilter = appDataStore.channelGroupFilter.first()
 
         val channels = when {
-            m3uUrl.isNotEmpty() -> fetchM3u(m3uUrl)
+            m3uUrl.isNotEmpty() -> fetchM3u(m3uUrl, groupFilter)
             server.isNotEmpty() && user.isNotEmpty() -> fetchXtream(server, user, pass)
             else -> emptyList()
         }
@@ -40,11 +43,36 @@ class IptvRepository @Inject constructor(
         return channels
     }
 
-    private suspend fun fetchM3u(url: String): List<Channel> = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url(url).build()
-        val body = okHttpClient.newCall(req).execute().body?.string()
-            ?: return@withContext emptyList()
-        M3uParser.parse(body)
+    suspend fun fetchGroupNames(): List<String> = withContext(Dispatchers.IO) {
+        val url = appDataStore.m3uUrl.first()
+        if (url.isEmpty()) return@withContext emptyList()
+        try {
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Android) AIO-TV/1.0")
+                .build()
+            okHttpClient.newCall(req).execute().use { resp ->
+                val stream = resp.body?.byteStream() ?: return@withContext emptyList()
+                M3uParser.parseGroupNames(BufferedReader(InputStreamReader(stream)))
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private suspend fun fetchM3u(url: String, groupFilter: Set<String> = emptySet()): List<Channel> = withContext(Dispatchers.IO) {
+        try {
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Android) AIO-TV/1.0")
+                .build()
+            okHttpClient.newCall(req).execute().use { resp ->
+                val stream = resp.body?.byteStream() ?: return@withContext emptyList()
+                M3uParser.parseStreaming(BufferedReader(InputStreamReader(stream)), groupFilter)
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     private suspend fun fetchXtream(server: String, user: String, pass: String): List<Channel> {

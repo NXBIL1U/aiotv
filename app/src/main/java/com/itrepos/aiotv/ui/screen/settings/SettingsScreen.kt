@@ -1,6 +1,7 @@
 package com.itrepos.aiotv.ui.screen.settings
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,10 +20,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -186,6 +190,49 @@ fun SettingsScreen(
                 newAddonUrl = ""
             }) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.settings_add_addon))
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        SectionHeader("Channel Group Filter")
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(onClick = { viewModel.fetchGroups() }, enabled = !state.isFetchingGroups) {
+                if (state.isFetchingGroups) CircularProgressIndicator(Modifier.padding(end = 8.dp))
+                Text(if (state.isFetchingGroups) "Fetching…" else "Fetch Groups")
+            }
+            if (state.availableGroups.isNotEmpty()) {
+                OutlinedButton(onClick = { viewModel.selectAllGroups() }) { Text("All") }
+                OutlinedButton(onClick = { viewModel.clearGroupFilter() }) { Text("None") }
+            }
+        }
+        if (state.availableGroups.isNotEmpty()) {
+            Text(
+                "Tick groups to include (empty = show all)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            state.availableGroups.forEach { group ->
+                val checked = state.enabledGroups.isEmpty() || group in state.enabledGroups
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(
+                        checked = checked,
+                        onCheckedChange = { on ->
+                            if (state.enabledGroups.isEmpty() && !on) {
+                                // first exclusion — seed filter with all groups, then remove this one
+                                viewModel.selectAllGroups()
+                            }
+                            viewModel.toggleGroup(group, on)
+                        },
+                    )
+                    Text(group, style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
 

@@ -48,6 +48,67 @@ object M3uParser {
         return channels
     }
 
+    fun parseGroupNames(reader: BufferedReader): List<String> {
+        val groups = linkedSetOf<String>()
+        try {
+            var line = reader.readLine()
+            if (line?.trimStart()?.removePrefix("﻿")?.startsWith("#EXTM3U") != true) return emptyList()
+            while (reader.readLine().also { line = it } != null) {
+                val l = line!!.trim()
+                if (l.startsWith("#EXTINF:")) {
+                    val attrs = mutableMapOf<String, String>()
+                    val commaIdx = l.indexOf(',')
+                    parseAttrs(if (commaIdx >= 0) l.substring(0, commaIdx) else l, attrs)
+                    val group = attrs["group-title"]
+                    if (!group.isNullOrEmpty()) groups += group
+                }
+            }
+        } catch (_: Exception) {}
+        return groups.toList()
+    }
+
+    fun parseStreaming(reader: BufferedReader, groupFilter: Set<String> = emptySet()): List<Channel> {
+        val channels = mutableListOf<Channel>()
+        try {
+            var line = reader.readLine()
+            if (line?.trimStart()?.removePrefix("﻿")?.startsWith("#EXTM3U") != true) return emptyList()
+            var attrs = mutableMapOf<String, String>()
+            var displayName = ""
+            while (reader.readLine().also { line = it } != null) {
+                val l = line!!.trim()
+                when {
+                    l.startsWith("#EXTINF:") -> {
+                        attrs = mutableMapOf()
+                        displayName = ""
+                        val commaIdx = l.indexOf(',')
+                        if (commaIdx >= 0) displayName = l.substring(commaIdx + 1).trim()
+                        parseAttrs(if (commaIdx >= 0) l.substring(0, commaIdx) else l, attrs)
+                    }
+                    l.startsWith("#") -> Unit
+                    l.isNotEmpty() -> {
+                        val group = attrs["group-title"] ?: "Uncategorised"
+                        if (groupFilter.isEmpty() || group in groupFilter) {
+                            val id = attrs["tvg-id"] ?: displayName
+                            channels += Channel(
+                                id = id.ifEmpty { l.hashCode().toString() },
+                                name = attrs["tvg-name"]?.takeIf { it.isNotEmpty() } ?: displayName,
+                                logoUrl = attrs["tvg-logo"]?.takeIf { it.isNotEmpty() },
+                                groupTitle = group,
+                                streamUrl = l,
+                                tvgId = attrs["tvg-id"]?.takeIf { it.isNotEmpty() },
+                            )
+                        }
+                        attrs = mutableMapOf()
+                        displayName = ""
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // Socket dropped mid-stream — return whatever was parsed
+        }
+        return channels
+    }
+
     private fun parseAttrs(line: String, out: MutableMap<String, String>) {
         val regex = Regex("""([\w-]+)=["']([^"']*)["']""")
         regex.findAll(line).forEach { m ->
