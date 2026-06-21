@@ -55,8 +55,8 @@ Resolve today's redundancy (read-only Addons tab duplicating Settings; Live/Watc
 - **Library / Watchlist** — saved titles + Continue Watching (later phase).
 - **Settings → Sources** — manage addons, IPTV, debrid, playback prefs. Single control surface.
 
-**Decision:** collapse "Addons" into a **Sources** area within Settings (or a dedicated
-Sources screen reachable from Settings). No standalone read-only Addons tab.
+**Decision:** a **dedicated Sources screen** (reached from Settings) manages all addons /
+IPTV / debrid, with per-source status and validation. No standalone read-only Addons tab.
 
 ## 5. Content & source model (target architecture)
 
@@ -130,7 +130,7 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
 - **Goal:** the architecture and onboarding that everything else builds on.
 - **Deliverables:** `ContentSource` + `StreamResolver` abstractions; reactive repositories
   with **auto-refresh** + cache (Room/Paging); **onboarding wizard**; consolidate IA (drop
-  redundant Addons/Watchlist tabs → Sources in Settings).
+  redundant Addons/Watchlist tabs → **dedicated Sources screen**).
 - **Absorbs TODO:** no auto-refresh; redundant Addons tab; Live/Watchlist stubs;
   cache-invalidation-on-settings-change.
 - **Exit:** adding/removing a source updates the UI live; first-run wizard configures the app.
@@ -153,8 +153,8 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
 
 ### Phase 4 — Discovery & personalisation
 - **Goal:** find and keep content.
-- **Deliverables:** unified search + voice; Watchlist; cross-device Continue Watching (if a
-  sync target is chosen); multi-debrid resolver support.
+- **Deliverables:** unified search + voice; Watchlist; **optional Trakt.tv sync** (Watchlist +
+  Continue Watching); add Real-Debrid/AllDebrid resolvers behind the existing interface.
 - **Exit:** search across sources; save and resume from a watchlist.
 
 ### Phase 5 — Hardening & modernisation
@@ -172,14 +172,21 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
 - **Source legality/availability** — sources are user-provided; the app ships none.
 - **Low-end hardware** — Fire sticks have limited RAM/CPU; watch image/list/cache budgets.
 
-## 11. Open decisions (need your input)
+## 11. Decisions (resolved 2026-06-21)
 
-1. **Sources IA** — manage sources inside Settings, or a dedicated "Sources" screen?
-2. **Watchlist** — local-only, or synced (and to what)?
-3. **Multi-debrid** — TorBox only for now, or design for Real-Debrid/AllDebrid from the start?
-4. **Downloads/offline** — in scope at all?
-5. **Profiles/accounts** — single user, or multiple profiles?
-6. **Live catch-up / recording** — in scope for IPTV?
+1. **Sources IA → dedicated Sources screen.** A standalone Sources area (from Settings)
+   manages all addons / IPTV / debrid, with per-source status and validation.
+2. **Watchlist & Continue Watching → local-first, Trakt-ready.** On-device now; architected so
+   an optional Trakt.tv login adds cross-device sync later (Phase 4).
+3. **Debrid → abstract, TorBox-only now.** `StreamResolver` interface with TorBox implemented;
+   Real-Debrid / AllDebrid are later drop-ins.
+4. **Offline downloads → out of scope.** Streaming-only.
+5. **Profiles → single user.** One watchlist / history; aligns with Trakt's one-account model.
+6. **Live IPTV → catch-up yes, recording no.** Timeshift/replay in the Live TV phase
+   (provider-dependent); no DVR/recording.
+
+### Non-goals (current scope)
+No offline downloads · no multiple profiles · no DVR/recording · no app backend of our own.
 
 ## 12. Where we are now
 

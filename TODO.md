@@ -2,70 +2,76 @@
 
 _Last updated: 2026-06-21_
 
-Living checklist of outstanding work. Grouped by priority. Check items off as they land.
+Living checklist of outstanding work. Each item is tagged with the roadmap phase that
+resolves it (`[P0]`–`[P5]`), so executing a phase ticks off its items automatically.
 For the product vision, target architecture, and phased roadmap, see [`DESIGN.md`](DESIGN.md).
+
+Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3** live TV ·
+**P4** discovery/personalisation · **P5** hardening/modernisation.
 
 ---
 
 ## ✅ Done (on `main`)
 
 - **P0 — Playback blockers:** cleartext HTTP enabled, custom User-Agent + cross-protocol
-  redirects on the ExoPlayer data source, DASH module + MIME hinting, error/buffering UI
-  with retry, lifecycle pause/resume, audio focus, wake mode, resume-from-position.
-- **P0 — Release build:** kotlinx.serialization R8 keep rules; release signs with the debug
-  key so `assembleRelease` is installable.
+  redirects, DASH module + MIME hinting, error/buffering UI with retry, lifecycle pause/resume,
+  audio focus, wake mode, resume-from-position.
+- **P0 — Release build:** kotlinx.serialization R8 keep rules; release signs with the debug key.
 - **P0 — TorBox VOD:** `checkcached` format fix; removed dead cached-resolution branch.
 - **Data fixes:** M3U UTF-8 BOM handling; M3U/EPG fetch moved to `Dispatchers.IO`.
 - **P1 — TV navigation:** clickable D-pad nav rail, initial focus per screen, focusable +
   scrollable TV Guide, TV overscan margins.
-- **P1 — Foldable/adaptive:** width-based layouts (TV rail / compact bottom bar / side rail),
+- **P1 — Foldable/adaptive:** width-based layouts (TV rail / bottom bar / side rail),
   Detail two-pane ≥840dp, Search grid ≥600dp.
 - **P2 — UX polish:** fixed invisible progress bar, image placeholders, lazy-list keys, larger
   TV typography, Settings password toggles + IME actions, Detail loading/error feedback.
 - **Build/repo fixes:** added missing `gradle.properties` (`android.useAndroidX=true`) and
-  un-ignored it; fixed `SearchScreen` missing `items` import. Project now compiles.
-- **Nav fix:** phone bottom bar now includes Settings/Addons (was cut off → app was
-  unconfigurable on phone/foldable).
-- **Verified live:** compiles, installs, launches and browses on a phone emulator
-  (Cinemeta catalog → Hero + rails + posters render).
+  un-ignored it; fixed `SearchScreen` missing `items` import. Project compiles.
+- **Nav fix:** phone bottom bar now includes Settings/Addons.
+- **Verified live:** compiles, installs, browses on a phone emulator (Cinemeta → Hero + rails).
 
 ---
 
-## 🧪 Verification still outstanding (highest value first)
+## 🧪 Verification still outstanding
 
-- [ ] **Real video playback** — the whole point of the P0 work, still unproven. Needs a
-      streaming source: a TorBox API key, or a public streams addon (e.g. a Torrentio-style
-      addon). Cinemeta provides catalog/metadata only, no streams.
-- [ ] **Detail screen** — open a title; verify loading/error states and the two-pane layout.
-- [ ] **Android TV emulator** — verify D-pad navigation and the 10-foot TV layout.
-- [ ] **Foldable emulator** — verify side-rail / two-pane adaptive layout (and unfold behaviour).
+- [ ] `[P0]` **Real video playback** — needs a streams addon or TorBox key (Cinemeta has no streams).
+- [ ] `[P0]` **Detail screen** — open a title; verify loading/error states + two-pane layout.
+- [ ] `[P0]` **Android TV emulator** — verify D-pad navigation and the 10-foot layout.
+- [ ] `[P0]` **Foldable emulator** — verify side-rail / two-pane adaptive layout.
+- [ ] `[P0]` **Fire TV** — must be tested on hardware (no Fire OS emulator exists).
 
 ## 🐞 Known bugs to fix
 
-- [ ] **Continue Watching resume broken for TorBox** — progress is keyed on the ephemeral
-      resolved stream URL. Store a stable content id (+ title/poster) in `WatchProgress`.
-- [ ] **Live / Watchlist tabs are stubs** — they re-show Guide / Addons. Implement real
-      screens or remove the entries.
-- [ ] **No hinge/fold posture awareness** — width adaptivity exists, but the player doesn't
-      avoid the fold crease (`WindowInfoTracker` / `FoldingFeature`).
-- [ ] **Settings title under status bar** — missing safe-area/window-insets padding on phone.
+- [ ] `[P1]` **No auto-refresh / pull-to-refresh** — Home loads once in `init`; adding/removing a
+      source doesn't update the UI until app restart. Make repositories reactive + add cache.
+- [ ] `[P1]` **Redundant Addons tab + Live/Watchlist stubs** — consolidate into the dedicated
+      Sources screen (per DESIGN decision 1).
+- [ ] `[P1]` **Cache invalidation on settings change** — wire `clearCache()` / reactive sources.
+- [ ] `[P1]` **Settings title under status bar** — missing safe-area/window-insets padding.
+- [ ] `[P2]` **Continue Watching resume broken for TorBox** — keyed on the ephemeral resolved
+      URL; store a stable content id (+ title/poster) in `WatchProgress`.
+- [ ] `[P2]` **No hinge/fold posture awareness** — player should avoid the fold crease
+      (`WindowInfoTracker` / `FoldingFeature`).
 
-## 🧹 Data-layer hardening (from review)
+## 🧹 Data-layer hardening
 
-- [ ] URL-encode Xtream username/password (breaks on `&`, `=`, `+`, spaces).
-- [ ] Redact TorBox API key from the `requestdl` URL and from HTTP logging.
-- [ ] XMLTV time parsing: support `+01:00`-style offsets; document no-offset = UTC.
-- [ ] Invalidate in-memory repo caches when settings change (wire `clearCache()`).
-- [ ] Stremio catalog pagination (`skip`) — currently only the first page loads.
-- [ ] Make non-nullable model fields tolerant (`XtreamStream.streamId`/`name`) so one bad
-      entry doesn't drop the whole list.
-- [ ] `pickFile` uses positional index — prefer matching by filename / largest video file.
+- [ ] `[P1]` Make non-nullable model fields tolerant (`XtreamStream.streamId`/`name`) so one bad
+      entry doesn't drop the whole list. _(touches shared parsing; do early)_
+- [ ] `[P2]` Stremio catalog pagination (`skip`) — currently only the first page loads.
+- [ ] `[P2]` `pickFile` uses positional index — prefer filename / largest-video matching.
+- [ ] `[P3]` URL-encode Xtream username/password (breaks on `&`, `=`, `+`, spaces).
+- [ ] `[P3]` XMLTV time parsing: support `+01:00`-style offsets; document no-offset = UTC.
+- [ ] `[P5]` Redact TorBox API key from the `requestdl` URL and from HTTP logging.
 
 ## ⚙️ Optional / housekeeping
 
-- [ ] Modernize toolchain (AGP / Kotlin / Compose BOM / Hilt / Coil). Media3 already bumped
-      to 1.5.1.
-- [ ] Replace deprecated `Icons.Filled.ArrowBack` with `Icons.AutoMirrored.Filled.ArrowBack`.
-- [ ] Update README (release signing now uses debug key; corrected `gradle.properties` guidance).
-- [ ] Add a `SessionStart` hook so Claude Code web sessions can build/lint.
-- [ ] Real Fire TV testing must be on hardware (no Fire OS emulator exists).
+- [ ] `[P5]` Modernize toolchain (AGP / Kotlin / Compose BOM / Hilt / Coil). Media3 → 1.5.1 done.
+- [ ] `[P5]` Replace deprecated `Icons.Filled.ArrowBack` with `Icons.AutoMirrored.Filled.ArrowBack`.
+- [ ] `[P5]` Update README (release signs with debug key; corrected `gradle.properties` guidance).
+- [ ] `[P5]` Add a `SessionStart` hook so Claude Code web sessions can build/lint.
+
+---
+
+## Out of scope (per DESIGN decisions)
+
+Offline downloads · multiple profiles · DVR/recording · app backend.
