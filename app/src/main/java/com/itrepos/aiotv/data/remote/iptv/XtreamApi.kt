@@ -20,7 +20,25 @@ interface XtreamApi {
 
     @GET
     suspend fun getSeries(@Url url: String): List<XtreamSeries>
+
+    @GET
+    suspend fun getShortEpg(@Url url: String): XtreamShortEpgResponse
 }
+
+@Serializable
+data class XtreamShortEpgResponse(
+    @SerialName("epg_listings") val listings: List<XtreamEpgListing> = emptyList(),
+)
+
+@Serializable
+data class XtreamEpgListing(
+    // `title`/`description` are base64-encoded by the provider; decode at the call site.
+    @SerialName("title") val title: String = "",
+    @SerialName("start") val start: String = "",
+    @SerialName("end") val end: String = "",
+    @SerialName("start_timestamp") val startTimestamp: Long = 0,
+    @SerialName("stop_timestamp") val stopTimestamp: Long = 0,
+)
 
 @Serializable
 data class XtreamCategory(
