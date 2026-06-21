@@ -33,6 +33,18 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   in Home; **series `year` range-string parse fix** (root cause of "series don't load").
 - **Verified live:** end-to-end on emulators with the owner's real addons (Netflix catalog +
   Torrentio+TorBox) — movie playback, series listing, and search all work.
+- **Live-TV Xtream fix + validation (2026-06-21):** an Xtream `get.php?type=m3u_plus` URL in the
+  M3U field returns one ~340 MB file bundling live + all VOD + all series — loading it whole
+  (`body.string()`) OOM-killed the app the instant the TV Guide opened (kernel kill, no Java
+  trace). Now: detect Xtream `get.php` URLs and use the compact `player_api.php` live JSON
+  (~7.6 MB, ~1 s, **27.5k live channels**); stream-parse genuine M3Us line-by-line with a
+  `MAX_CHANNELS` cap; play live via raw **MPEG-TS (`.ts`)** not HLS (`.m3u8`) — Xtream HLS hands
+  back tokenised `/hlsr/` segment URLs that 401/403 and trip `max_connections=1`; make
+  `XtreamStream.streamId/name` tolerant so one malformed row can't drop the whole list; and guard
+  the M3U fetch so failures render the empty state instead of crashing. **Validated on the phone
+  emulator:** channels load and a channel plays (H.264 video confirmed). Audio decodes (AAC track
+  + decoder running, focus granted) but the emulator doesn't route sound to the host — **confirm
+  audio on phone/Fire TV hardware.**
 
 ---
 
@@ -48,7 +60,9 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       (Path B; H.264+AAC decoding confirmed). _(2026-06-21)_
 - [x] **Series load** — fixed after the `year` parse bug (see Done). _(2026-06-21)_
 - [x] **Search** — returns catalog results ("Movies & Series"). _(2026-06-21)_
-- [ ] **Live TV / IPTV** — not yet validated (needs the M3U saved via the Save button).
+- [x] **Live TV / IPTV** — validated on phone emulator: Xtream provider (`get.php` → `player_api.php`
+      live JSON), 27.5k channels load in ~1 s, a channel plays via raw MPEG-TS (H.264 video
+      confirmed). Audio decodes but emulator is silent — **confirm audio on hardware.** _(2026-06-21)_
 - [ ] **Fire TV** — must be tested on hardware (no Fire OS emulator exists).
 
 ## 🐞 Known bugs to fix
@@ -77,8 +91,8 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 
 ## 🧹 Data-layer hardening
 
-- [ ] `[P1]` Make non-nullable model fields tolerant (`XtreamStream.streamId`/`name`) so one bad
-      entry doesn't drop the whole list. _(touches shared parsing; do early)_
+- [x] `[P1]` Make non-nullable model fields tolerant (`XtreamStream.streamId`/`name`) so one bad
+      entry doesn't drop the whole list. _(done 2026-06-21 — defaults + post-filter; needed at 27.5k channels)_
 - [ ] `[P2]` Stremio catalog pagination (`skip`) — currently only the first page loads.
 - [ ] `[P2]` `pickFile` uses positional index — prefer filename / largest-video matching.
 - [ ] `[P3]` URL-encode Xtream username/password (breaks on `&`, `=`, `+`, spaces).

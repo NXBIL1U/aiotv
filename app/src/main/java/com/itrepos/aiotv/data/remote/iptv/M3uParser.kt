@@ -6,13 +6,28 @@ import java.io.StringReader
 
 object M3uParser {
 
-    fun parse(content: String): List<Channel> {
+    /**
+     * Hard cap on parsed entries. A genuine M3U is normally well under this; the cap stops a
+     * pathologically large playlist (e.g. an Xtream `m3u_plus` dump that bundles all VOD) from
+     * exhausting memory on low-RAM devices like Fire TV sticks. Xtream `get.php` URLs are
+     * routed to the compact JSON API before they ever reach here (see [XtreamCreds]).
+     */
+    const val MAX_CHANNELS = 20_000
+
+    /** Convenience overload for in-memory content (small playlists, tests). */
+    fun parse(content: String): List<Channel> =
+        parse(BufferedReader(StringReader(content)), MAX_CHANNELS)
+
+    /**
+     * Stream a playlist line-by-line so we never hold the whole body in memory. Stops after
+     * [maxChannels] entries. The caller owns [reader] (and should close it).
+     */
+    fun parse(reader: BufferedReader, maxChannels: Int = MAX_CHANNELS): List<Channel> {
         val channels = mutableListOf<Channel>()
-        // Strip a leading UTF-8 BOM, which many providers prepend; otherwise the
-        // first line is "﻿#EXTM3U" and the playlist is rejected as invalid.
-        val reader = BufferedReader(StringReader(content.removePrefix("﻿")))
         var line = reader.readLine()
 
+        // Strip a leading UTF-8 BOM, which many providers prepend; otherwise the
+        // first line is "﻿#EXTM3U" and the playlist is rejected as invalid.
         if (line?.trimStart()?.removePrefix("﻿")?.startsWith("#EXTM3U") != true) return emptyList()
 
         var attrs = mutableMapOf<String, String>()
@@ -42,6 +57,7 @@ object M3uParser {
                     )
                     attrs = mutableMapOf()
                     displayName = ""
+                    if (channels.size >= maxChannels) break
                 }
             }
         }

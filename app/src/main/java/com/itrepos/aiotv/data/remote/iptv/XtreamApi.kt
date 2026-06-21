@@ -31,8 +31,11 @@ data class XtreamCategory(
 
 @Serializable
 data class XtreamStream(
-    @SerialName("stream_id") val streamId: Int,
-    @SerialName("name") val name: String,
+    // Defaults make these tolerant: with coerceInputValues, a single malformed entry (missing
+    // or null stream_id/name) decodes to a default instead of failing the whole list — at
+    // tens of thousands of channels one bad row must not drop them all. Filter invalids after.
+    @SerialName("stream_id") val streamId: Int = 0,
+    @SerialName("name") val name: String = "",
     @SerialName("stream_icon") val streamIcon: String? = null,
     @SerialName("category_id") val categoryId: String? = null,
     @SerialName("epg_channel_id") val epgChannelId: String? = null,

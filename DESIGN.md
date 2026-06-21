@@ -156,12 +156,15 @@ player listener.
 
 Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and exit criteria.
 
-### Phase 0 — Stabilise & verify _(in progress)_
+### Phase 0 — Stabilise & verify _(essentially complete)_
 - **Goal:** prove the merged P0/P1/P2 work end-to-end.
-- **Done:** project builds; runs and browses on phone emulator (Cinemeta).
-- **Remaining:** verify **real playback** (needs a streams addon or TorBox key); verify the
-  **Detail** screen; pass on **Android TV** and **foldable** emulators.
-- **Exit:** a torrent/VOD title plays via TorBox, and live IPTV plays, on at least one device.
+- **Done:** project builds; runs/browses on phone emulator; **VOD playback** via Torrentio+TorBox
+  (cached direct URLs); **series listing**, **search**, **Detail**; Android TV + foldable emulators;
+  and **live IPTV** — Xtream provider via `player_api.php`, 27.5k channels, a channel plays
+  (H.264 video) over raw MPEG-TS.
+- **Remaining:** confirm **live-TV audio on hardware** (emulator doesn't route sound); **Fire TV**
+  (no emulator — needs the physical stick).
+- **Exit:** ✅ a VOD title plays via TorBox **and** live IPTV plays, on the phone emulator.
 
 ### Phase 1 — Foundations
 - **Goal:** the architecture and onboarding that everything else builds on.
@@ -239,10 +242,12 @@ No offline downloads · no multiple profiles · no DVR/recording · no app backe
 
 ## 12. Where we are now
 
-See [`TODO.md`](TODO.md) for the live checklist. Summary (2026-06-21): **Phase 0 largely done** —
+See [`TODO.md`](TODO.md) for the live checklist. Summary (2026-06-21): **Phase 0 essentially done** —
 verified on emulators against the owner's real addons (Netflix catalog + Torrentio+TorBox):
 movie **playback works** end-to-end (Path B, cached direct URLs), **series load** (fixed a
-`year` parse bug), and **search** works. Found/fixed 4 bugs (manifest `resources` type, resilient
-manifest load, async-crash guard, series `year`) — **currently local/uncommitted** pending a safe
-way to land them without clobbering the owner's parallel work. Series still needs metadata +
-episode picker (§6a, Phase 2). Live TV/IPTV not yet validated. Foundations (Phase 1) not started.
+`year` parse bug), and **search** works. **Live IPTV now works too**: an Xtream `get.php` M3U was
+dumping ~340 MB (live+VOD+series) and OOM-killing the app on the Guide — fixed by routing Xtream
+`get.php` URLs to the compact `player_api.php` live JSON, streaming/​capping generic M3U parsing,
+and playing live via raw **MPEG-TS** (Xtream HLS 401/403s on its tokenised segments). 27.5k
+channels load in ~1 s and a channel plays (H.264 video; audio decodes — confirm sound on hardware).
+Series still needs metadata + episode picker (§6a, Phase 2). Foundations (Phase 1) not started.

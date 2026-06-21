@@ -108,6 +108,9 @@ fun PlayerScreen(
         val mime = when {
             url.contains(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
             url.contains(".mpd", ignoreCase = true) -> MimeTypes.APPLICATION_MPD
+            // Xtream live is raw MPEG-TS (.ts) — hint it so ExoPlayer picks the TS extractor
+            // instead of sniffing/misdetecting the continuous progressive stream.
+            url.contains(".ts", ignoreCase = true) -> MimeTypes.VIDEO_MP2T
             else -> null
         }
         val startPositionMs = viewModel.getStartPosition(url)
