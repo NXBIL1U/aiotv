@@ -62,8 +62,15 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   for the full 30 s (true parallel IP racing needs OkHttp 5 `fastFallback` — see Optional). **All
   of these validated on-device** during the provider outage (escalating message at 6/18/33 s,
   3 auto-retries at 15 s/IP, then error+Retry; no crash).
-- **Live-TV still PENDING:** the **populated** browser (real channels/logos/categories/search/
-  now-next EPG/tap-to-play) — needs a reachable provider; the provider was down the whole session.
+- **Live-TV populated browser VALIDATED (2026-06-21, on `main`):** with the provider reachable
+  (via VPN — see below), the full browser works on the phone emulator: **category chips** with
+  real names, **channel logos** (Coil), **instant search** (e.g. "ecuavisa" → 2 matches), and
+  **now/next EPG** auto-loading for visible rows (`get_short_epg` 200s; e.g. "● La Rosa de
+  Guadalupe / Next 23:00 · Versión original"), with "—" for channels lacking EPG. Tapping a
+  channel plays it. No crash. **Live TV core experience is complete + validated.**
+- **Network note:** the owner's UK ISP (Virgin Media) **blocks the IPTV provider's IP range**
+  (`149.18.45.x`) — confirmed by TCP-unreachable from Virgin vs. reachable over a VPN. So live TV
+  needs a VPN on the owner's network during ISP IPTV blocking (common around live football).
 
 ---
 

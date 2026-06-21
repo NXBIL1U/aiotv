@@ -253,7 +253,8 @@ channels load in ~1 s and a channel plays (H.264 video; audio decodes — confir
 A first **Live TV "core experience"** slice of Phase 3 is then built and **merged to `main`**
 (category browser + logos + search + lazy now/next EPG; Guide/Live tabs merged into one; a
 "provider unreachable" state with Retry; progressive loading messages + auto-retry; 15 s-per-IP
-connect timeout for faster failover). Code reviewed; the loading/error/retry paths are validated
-on-device, but the **populated** browser (real channels/logos/EPG) is still pending — the IPTV
-provider was down the whole session. Parallel IP racing (OkHttp 5 `fastFallback`) is a noted
-follow-up. Series still needs metadata + episode picker (§6a, Phase 2). Foundations (Phase 1) not started.
+connect timeout for faster failover). Code reviewed and **fully validated on-device**:
+loading/error/retry paths, plus the populated browser — category chips with real names, channel
+logos, instant search, and now/next EPG auto-loading for visible rows; tap-to-play works. (The
+provider's IP range is blocked by the owner's UK ISP during live football; validated over a VPN.)
+Parallel IP racing (OkHttp 5 `fastFallback`) is a noted follow-up. Series still needs metadata + episode picker (§6a, Phase 2). Foundations (Phase 1) not started.
