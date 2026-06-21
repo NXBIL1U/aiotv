@@ -45,6 +45,18 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   emulator:** channels load and a channel plays (H.264 video confirmed). Audio decodes (AAC track
   + decoder running, focus granted) but the emulator doesn't route sound to the host — **confirm
   audio on phone/Fire TV hardware.**
+- **Live-TV core experience UI (2026-06-21, branch `feat/live-tv-core`):** replaced the bare
+  channel list with a **category-first browser** — category sidebar (wide) / chips (compact),
+  channel cards with **logos** (Coil), **instant search** across all channels, and **lazy
+  per-channel now/next EPG** via Xtream `get_short_epg` (base64-decoded, cached, `Semaphore(4)`,
+  null-result recorded to avoid scroll re-fetch). Consolidated the redundant **Guide + Live tabs
+  into one "Live TV"** destination (removed `TvGuideScreen`/`TvGuideViewModel`/`Screen.Guide`).
+  Spec: `docs/superpowers/specs/2026-06-21-live-tv-core-experience-design.md`; plan:
+  `docs/superpowers/plans/2026-06-21-live-tv-core-experience.md`. Builds clean; passed a scoped
+  code review (epgCache→ConcurrentHashMap, retry-flood guard, dup-route removal, next-programme
+  fix). **On-device UI validation PENDING** — the IPTV provider went down mid-session (TCP
+  timeouts from Mac + emulator), so only the loading state was confirmed; verify the populated
+  browser (logos/categories/search/EPG) once the provider is back.
 
 ---
 
@@ -70,7 +82,8 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - [ ] `[P1]` **No auto-refresh / pull-to-refresh** — Home loads once in `init`; adding/removing a
       source doesn't update the UI until app restart. Make repositories reactive + add cache.
 - [ ] `[P1]` **Redundant Addons tab + Live/Watchlist stubs** — consolidate into the dedicated
-      Sources screen (per DESIGN decision 1).
+      Sources screen (per DESIGN decision 1). _(Partly done 2026-06-21: the duplicate Guide/Live
+      tabs are now a single "Live TV" destination; Addons tab + Watchlist stub still to fold in.)_
 - [ ] `[P1]` **Cache invalidation on settings change** — wire `clearCache()` / reactive sources.
 - [ ] `[P1]` **Settings title under status bar** — missing safe-area/window-insets padding.
 - [ ] `[P2]` **Series usability** — series now load, but (a) Detail shows raw id (no metadata
