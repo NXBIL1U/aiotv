@@ -195,7 +195,12 @@ private fun ChannelList(
             ChannelRow(
                 channel = channel,
                 nowNext = state.epg[channel.id],
-                onClick = { onPlayChannel(channel.streamUrl, channel.name) },
+                isFavourite = channel.id in state.favChannelIds,
+                onToggleFavourite = { viewModel.toggleFavChannel(channel.id) },
+                onClick = {
+                    viewModel.onChannelPlayed(channel.id)
+                    onPlayChannel(channel.streamUrl, channel.name)
+                },
             )
         }
     }

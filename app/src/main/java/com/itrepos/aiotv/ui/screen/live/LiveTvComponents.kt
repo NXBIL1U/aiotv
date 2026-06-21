@@ -20,6 +20,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,12 +50,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** A live-channel row: logo + name + now/next programme. Whole row plays the channel. */
+/** A live-channel row: logo + name + now/next programme + ★ favourite toggle. */
 @Composable
 fun ChannelRow(
     channel: Channel,
     nowNext: EpgNowNext?,
     onClick: () -> Unit,
+    isFavourite: Boolean = false,
+    onToggleFavourite: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
@@ -106,6 +113,14 @@ fun ChannelRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+            // ★ favourite toggle
+            IconButton(onClick = onToggleFavourite) {
+                Icon(
+                    imageVector = if (isFavourite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    contentDescription = if (isFavourite) "Remove from favourites" else "Add to favourites",
+                    tint = if (isFavourite) AccentPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
