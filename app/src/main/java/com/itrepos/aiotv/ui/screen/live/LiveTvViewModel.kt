@@ -10,13 +10,13 @@ import com.itrepos.aiotv.domain.model.ChannelCategory
 import com.itrepos.aiotv.domain.model.EpgNowNext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -47,7 +47,7 @@ data class LiveTvState(
     val favChannelIds: Set<String> = emptySet(),
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class LiveTvViewModel @Inject constructor(
     private val repository: LiveTvRepository,
@@ -59,7 +59,12 @@ class LiveTvViewModel @Inject constructor(
 
     private val epgSemaphore = Semaphore(4)
     private val epgInFlight = mutableSetOf<String>()
-    private var queryJob: Job? = null
+
+    /** Current search query (debounced into the channel-list flow). */
+    private val queryFlow = MutableStateFlow("")
+
+    /** Current category selection ([ALL_CATEGORY_ID] = no category filter). */
+    private val categoryIdFlow = MutableStateFlow(ALL_CATEGORY_ID)
 
     init {
         observeRoomFlows()
@@ -70,40 +75,44 @@ class LiveTvViewModel @Inject constructor(
     /**
      * Subscribe to Room Flows for channels and categories.
      *
-     * - The channel + category flows switch whenever the persisted [AppDataStore.liveRegions]
-     *   changes (via [flatMapLatest]).
-     * - Within each region set, a secondary combine re-queries when [selectedCategoryId] changes.
-     * - When [query] is non-blank, the channel list is replaced by a global search result that
-     *   ignores region and category — so every channel remains reachable.
+     * The channel list is driven by ONE combined flow over three inputs:
+     *  - the persisted [AppDataStore.liveRegions],
+     *  - the current [categoryIdFlow] selection, and
+     *  - a 250ms-debounced [queryFlow].
+     *
+     * [flatMapLatest] picks the right Room Flow for the latest inputs: a blank query yields the
+     * region+category-scoped flow; a non-blank query yields the global search flow (which ignores
+     * region/category so every channel stays reachable). A single collector means no leaked
+     * per-keystroke collectors, and clearing the query naturally switches back to the scoped flow.
      */
     private fun observeRoomFlows() {
-        // Internal flow tracking the current category selection (so we can switch it reactively).
-        val categoryIdFlow = MutableStateFlow(ALL_CATEGORY_ID)
-
-        // Observe channels: switch the Room Flow whenever regions or category changes.
+        // Keep selectedRegions in state in sync with the persisted value.
         appDataStore.liveRegions
-            .flatMapLatest { regions ->
-                _state.update { it.copy(selectedRegions = regions) }
-                val regionList = regions.toList()
-                categoryIdFlow.flatMapLatest { catId ->
-                    val effectiveCatId = if (catId == ALL_CATEGORY_ID) null else catId
-                    repository.observeChannels(regionList, effectiveCatId)
+            .onEach { regions -> _state.update { it.copy(selectedRegions = regions) } }
+            .launchIn(viewModelScope)
+
+        // Single channel-list flow: regions × category × debounced query.
+        val debouncedQuery = queryFlow.debounce(250)
+        combine(appDataStore.liveRegions, categoryIdFlow, debouncedQuery) { regions, catId, q ->
+            Triple(regions, catId, q)
+        }
+            .flatMapLatest { (regions, catId, q) ->
+                if (q.isBlank()) {
+                    val effectiveCatId = catId.takeIf { it != ALL_CATEGORY_ID }
+                    repository.observeChannels(regions.toList(), effectiveCatId)
+                } else {
+                    // Global search — ignores region/category so every channel is reachable.
+                    repository.searchChannels(q)
                 }
             }
             .catch { e -> android.util.Log.e("LiveTvViewModel", "Channel flow error", e) }
             .onEach { channelEntities ->
                 val channels = channelEntities.map { it.toDomain() }
-                val currentQuery = _state.value.query
-                val displayedChannels = if (currentQuery.isBlank()) channels else {
-                    // Query is active: keep showing the in-flight search result unchanged;
-                    // the setQuery debounce will re-issue a search when the user types.
-                    _state.value.channels
-                }
                 _state.update { s ->
                     s.copy(
                         isLoading = false,
                         hasSource = channels.isNotEmpty() || s.categories.isNotEmpty(),
-                        channels = displayedChannels,
+                        channels = channels,
                     )
                 }
             }
@@ -124,11 +133,6 @@ class LiveTvViewModel @Inject constructor(
                     )
                 }
             }
-            .launchIn(viewModelScope)
-
-        // Wire categoryIdFlow so selectCategory() triggers a new channel query.
-        _state
-            .onEach { s -> categoryIdFlow.value = s.selectedCategoryId }
             .launchIn(viewModelScope)
     }
 
@@ -210,6 +214,8 @@ class LiveTvViewModel @Inject constructor(
     }
 
     fun selectCategory(id: String) {
+        categoryIdFlow.value = id
+        queryFlow.value = ""
         _state.update { it.copy(selectedCategoryId = id, query = "") }
     }
 
@@ -224,29 +230,13 @@ class LiveTvViewModel @Inject constructor(
     }
 
     /**
-     * Debounced search. When [q] is non-blank the global Room search is used (ignores region);
-     * when blank, the current region+category scoped Flow takes over again.
+     * Update the search query. The combined channel-list flow debounces [queryFlow] (250ms) and
+     * switches between the global search and the region+category scoped flow automatically: a
+     * non-blank query searches globally (ignoring region); a blank query restores the scoped list.
      */
     fun setQuery(q: String) {
+        queryFlow.value = q
         _state.update { it.copy(query = q) }
-        queryJob?.cancel()
-        queryJob = viewModelScope.launch {
-            delay(250)
-            if (q.isBlank()) {
-                // Blank query: let the region+category Flow supply the channel list.
-                // Trigger a re-emit by nudging the category selection state.
-                val catId = _state.value.selectedCategoryId
-                _state.update { it.copy(selectedCategoryId = catId) }
-            } else {
-                // Non-blank: global search — ignores region so every channel is reachable.
-                repository.searchChannels(q)
-                    .catch { e -> android.util.Log.e("LiveTvViewModel", "Search flow error", e) }
-                    .onEach { entities ->
-                        _state.update { it.copy(channels = entities.map { e -> e.toDomain() }) }
-                    }
-                    .launchIn(viewModelScope)
-            }
-        }
     }
 
     /** Lazily fetch now/next EPG for a channel as its row first becomes visible. */
