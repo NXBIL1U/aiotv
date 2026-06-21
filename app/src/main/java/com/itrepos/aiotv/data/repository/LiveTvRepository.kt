@@ -16,6 +16,7 @@ import com.itrepos.aiotv.data.local.db.entity.EpgEntity
 import com.itrepos.aiotv.data.local.db.entity.FavouriteCategoryEntity
 import com.itrepos.aiotv.data.local.db.entity.FavouriteChannelEntity
 import com.itrepos.aiotv.data.local.db.entity.RecentlyWatchedEntity
+import com.itrepos.aiotv.data.remote.iptv.RegionClassifier
 import com.itrepos.aiotv.data.remote.iptv.XtreamApi
 import com.itrepos.aiotv.data.remote.iptv.XtreamCreds
 import com.itrepos.aiotv.domain.model.ChannelCategory
@@ -192,29 +193,30 @@ class LiveTvRepository @Inject constructor(
             val streams = xtreamApi.getLiveStreams(streamsUrl)
             val rawCats = xtreamApi.getLiveCategories(catsUrl)
 
-            // Map categories
+            // Map categories — derive regionTag from the category name
             val categoryEntities = rawCats.map { c ->
                 CategoryEntity(
                     id = c.categoryId,
                     name = c.categoryName,
-                    regionTag = "", // Phase 2 fills regionTag via RegionClassifier
+                    regionTag = RegionClassifier.classify(c.categoryName),
                 )
             }
 
             // Build a categoryId → categoryName lookup for channels
             val catNameById = rawCats.associate { it.categoryId to it.categoryName }
 
-            // Map channels — regionTag left "" for Phase 2
+            // Map channels — regionTag derived from category name (fallback: channel name)
             val channelEntities = streams
                 .filter { it.streamId > 0 && it.name.isNotBlank() }
                 .map { s ->
+                    val catName = catNameById[s.categoryId]?.takeIf { it.isNotBlank() } ?: s.name
                     ChannelEntity(
                         id = s.streamId.toString(),
                         name = s.name,
                         logoUrl = s.streamIcon,
                         streamUrl = "${creds.server}/live/${creds.user}/${creds.pass}/${s.streamId}.ts",
                         categoryId = s.categoryId ?: "",
-                        regionTag = "", // Phase 2
+                        regionTag = RegionClassifier.classify(catName),
                         epgChannelId = s.epgChannelId,
                         num = s.streamId, // use streamId as ordering num
                     )

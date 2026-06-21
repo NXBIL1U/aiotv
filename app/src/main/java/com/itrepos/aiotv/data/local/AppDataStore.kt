@@ -22,6 +22,10 @@ class AppDataStore @Inject constructor(
         val KEY_M3U_URL = stringPreferencesKey("m3u_url")
         val KEY_XMLTV_URL = stringPreferencesKey("xmltv_url")
         val KEY_ADDON_URLS = stringSetPreferencesKey("addon_urls")
+        val KEY_LIVE_REGIONS = stringSetPreferencesKey("live_regions")
+
+        /** Default regions shown on first launch — UK + US + EN (English-language scope). */
+        val DEFAULT_LIVE_REGIONS = setOf("US", "UK", "EN")
     }
 
     val torBoxApiKey: Flow<String> = dataStore.data.map { it[KEY_TORBOX_API_KEY] ?: "" }
@@ -31,6 +35,11 @@ class AppDataStore @Inject constructor(
     val m3uUrl: Flow<String> = dataStore.data.map { it[KEY_M3U_URL] ?: "" }
     val xmltvUrl: Flow<String> = dataStore.data.map { it[KEY_XMLTV_URL] ?: "" }
     val addonUrls: Flow<Set<String>> = dataStore.data.map { it[KEY_ADDON_URLS] ?: emptySet() }
+
+    /** The set of region tags the user has selected for Live TV (default: US, UK, EN). */
+    val liveRegions: Flow<Set<String>> = dataStore.data.map {
+        it[KEY_LIVE_REGIONS] ?: DEFAULT_LIVE_REGIONS
+    }
 
     suspend fun setTorBoxApiKey(key: String) = dataStore.edit { it[KEY_TORBOX_API_KEY] = key }
     suspend fun setXtreamServer(url: String) = dataStore.edit { it[KEY_XTREAM_SERVER] = url }
@@ -45,5 +54,10 @@ class AppDataStore @Inject constructor(
     suspend fun removeAddonUrl(url: String) = dataStore.edit {
         val current = it[KEY_ADDON_URLS] ?: emptySet()
         it[KEY_ADDON_URLS] = current - url
+    }
+
+    /** Persist the selected Live TV region tags. */
+    suspend fun setLiveRegions(regions: Set<String>) = dataStore.edit {
+        it[KEY_LIVE_REGIONS] = regions
     }
 }
