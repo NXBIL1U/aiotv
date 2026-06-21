@@ -3,6 +3,7 @@
 _Last updated: 2026-06-21_
 
 Living checklist of outstanding work. Grouped by priority. Check items off as they land.
+For the product vision, target architecture, and phased roadmap, see [`DESIGN.md`](DESIGN.md).
 
 ---
 
