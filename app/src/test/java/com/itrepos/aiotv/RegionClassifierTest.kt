@@ -19,4 +19,9 @@ class RegionClassifierTest {
     @Test fun latamDo() = assertRegion("LATAM", "FIFA-DO| CDN DEPORTES")
     @Test fun ukSports() = assertRegion("UK", "UK SPORTS")
     @Test fun emptyString() = assertRegion("OTHER", "")
+
+    // Regression: non-English "24/7" bundles must NOT be tagged EN (would pollute the
+    // English default scope). Only an explicit "ENGLISH" marker is EN.
+    @Test fun twentyFourSevenChinaIsNotEn() = assertRegion("OTHER", "24/7 | CHINA")
+    @Test fun twentyFourSevenFrenchIsNotEn() = assertRegion("OTHER", "24/7 | FRENCH")
 }

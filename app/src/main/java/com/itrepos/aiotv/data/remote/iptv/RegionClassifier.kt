@@ -62,9 +62,10 @@ object RegionClassifier {
         if (upper.contains("IRELAND")) return "UK"
         if (upper.contains("IRISH")) return "UK"
 
-        // EN  (broad English bundles — checked after country tags)
+        // EN — only an explicit "ENGLISH" marker. Do NOT treat all "24/7" bundles as English:
+        // the provider has "24/7 | CHINA", "24/7 | FRENCH", etc., which must not pollute the
+        // English default scope. Unlabelled bundles fall through to OTHER (reachable via filter/search).
         if (upper.contains("ENGLISH")) return "EN"
-        if (upper.contains("24/7")) return "EN"
 
         // EU
         if (upper.contains("EUROP")) return "EU"    // "EUROPE", "WEST EUROP", "EAST EUROP"
