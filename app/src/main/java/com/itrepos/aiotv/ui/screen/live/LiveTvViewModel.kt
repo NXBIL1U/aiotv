@@ -24,6 +24,7 @@ const val ALL_CATEGORY_ID = "__all__"
 
 data class LiveTvState(
     val isLoading: Boolean = true,
+    val hasSource: Boolean = false,
     val categories: List<ChannelCategory> = emptyList(),
     val selectedCategoryId: String = ALL_CATEGORY_ID,
     val channels: List<Channel> = emptyList(),
@@ -44,7 +45,13 @@ class LiveTvViewModel @Inject constructor(
     private var queryJob: Job? = null
 
     init {
+        load()
+    }
+
+    private fun load() {
+        _state.update { it.copy(isLoading = true) }
         viewModelScope.launch {
+            val hasSource = repo.hasIptvSource()
             val channelsDeferred = async { repo.getChannels() }
             val catsDeferred = async { repo.getCategories() }
             allChannels = channelsDeferred.await()
@@ -52,11 +59,20 @@ class LiveTvViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     isLoading = false,
+                    hasSource = hasSource,
                     categories = listOf(ChannelCategory(ALL_CATEGORY_ID, "All")) + cats,
                     channels = allChannels,
+                    query = "",
+                    selectedCategoryId = ALL_CATEGORY_ID,
                 )
             }
         }
+    }
+
+    /** Re-attempt loading after a failure (e.g. the provider was unreachable). */
+    fun retry() {
+        repo.clearCache()
+        load()
     }
 
     fun selectCategory(id: String) {

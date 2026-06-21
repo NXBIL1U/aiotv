@@ -58,6 +58,14 @@ class IptvRepository @Inject constructor(
         return channels
     }
 
+    /** True if any IPTV source is configured (M3U URL or Xtream credentials). */
+    suspend fun hasIptvSource(): Boolean {
+        if (appDataStore.m3uUrl.first().isNotEmpty()) return true
+        val server = appDataStore.xtreamServer.first()
+        val user = appDataStore.xtreamUser.first()
+        return server.isNotEmpty() && user.isNotEmpty()
+    }
+
     /**
      * Single source of truth for Xtream credentials: an Xtream `get.php` URL pasted into the
      * M3U field takes priority, otherwise the dedicated Xtream fields. Null = no Xtream account

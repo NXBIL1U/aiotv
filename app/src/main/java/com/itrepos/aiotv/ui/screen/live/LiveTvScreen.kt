@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -58,14 +59,27 @@ fun LiveTvScreen(
                 vertical = if (isTv) TV_OVERSCAN_V else 0.dp,
             ),
     ) {
-        // Nothing configured / fetch failed → empty state with a route to Settings.
+        // Empty: distinguish "no source configured" from "source configured but unreachable".
         if (state.categories.size <= 1 && state.channels.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    "No channels yet. Add an IPTV source in Settings to watch Live TV.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+            Column(
+                Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            ) {
+                if (state.hasSource) {
+                    Text(
+                        "Couldn't reach your IPTV provider. It may be offline or its address may have changed — check Settings, then try again.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Button(onClick = { viewModel.retry() }) { Text("Retry") }
+                } else {
+                    Text(
+                        "No IPTV source yet. Add one in Settings to watch Live TV.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
             }
             return@BoxWithConstraints
         }
