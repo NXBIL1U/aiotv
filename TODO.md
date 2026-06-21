@@ -32,13 +32,17 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 
 ---
 
-## 🧪 Verification still outstanding
+## 🧪 Verification
 
-- [ ] `[P0]` **Real video playback** — needs a streams addon or TorBox key (Cinemeta has no streams).
-- [ ] `[P0]` **Detail screen** — open a title; verify loading/error states + two-pane layout.
-- [ ] `[P0]` **Android TV emulator** — verify D-pad navigation and the 10-foot layout.
-- [ ] `[P0]` **Foldable emulator** — verify side-rail / two-pane adaptive layout.
-- [ ] `[P0]` **Fire TV** — must be tested on hardware (no Fire OS emulator exists).
+- [x] **Phone** — builds, browses, Home + bottom bar (Cinemeta catalog renders). _(2026-06-21)_
+- [x] **Detail screen** — metadata + description load; correct "no streams" empty state. _(2026-06-21)_
+- [x] **Android TV emulator** — nav rail, initial focus + visible focus indicator, D-pad
+      move **and center-select navigation**, TV typography. _(2026-06-21)_
+- [x] **Foldable emulator** — side rail when unfolded ↔ bottom bar when folded; switches live
+      on fold. _(2026-06-21)_
+- [ ] `[P0]` **Real video playback** — STILL BLOCKED: needs a streams addon or TorBox key
+      (Cinemeta provides catalog/metadata only, no streams).
+- [ ] **Fire TV** — must be tested on hardware (no Fire OS emulator exists).
 
 ## 🐞 Known bugs to fix
 
@@ -51,7 +55,14 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - [ ] `[P2]` **Continue Watching resume broken for TorBox** — keyed on the ephemeral resolved
       URL; store a stable content id (+ title/poster) in `WatchProgress`.
 - [ ] `[P2]` **No hinge/fold posture awareness** — player should avoid the fold crease
-      (`WindowInfoTracker` / `FoldingFeature`).
+      (`WindowInfoTracker` / `FoldingFeature`). Note: width-based layout switching on fold
+      *does* work; this is specifically about the hinge crease.
+- [ ] `[P2]` **Detail screen has no poster/backdrop art on phone** — only the two-pane
+      (≥840dp) layout shows artwork; single-column should too. _(found 2026-06-21)_
+- [ ] `[P1]` **TV overscan missing on Settings/Search/Detail** — only Home/Guide apply the
+      10-foot safe-area margins. _(found 2026-06-21)_
+- [ ] `[P2]` **TV: Settings auto-focuses first field** → on-screen keyboard pops immediately
+      on entry; should require an explicit tap. _(found 2026-06-21)_
 
 ## 🧹 Data-layer hardening
 
