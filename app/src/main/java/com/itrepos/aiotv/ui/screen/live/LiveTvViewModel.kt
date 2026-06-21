@@ -39,6 +39,12 @@ data class LiveTvState(
     val channels: List<Channel> = emptyList(),
     val query: String = "",
     val epg: Map<String, EpgNowNext> = emptyMap(),
+    // Phase 3: favourites + recently-watched
+    val favChannels: List<Channel> = emptyList(),
+    val favCategories: List<ChannelCategory> = emptyList(),
+    val recent: List<Channel> = emptyList(),
+    /** Set of channel ids that are currently favourited — used for O(1) ★ rendering per row. */
+    val favChannelIds: Set<String> = emptySet(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,6 +63,7 @@ class LiveTvViewModel @Inject constructor(
 
     init {
         observeRoomFlows()
+        observeFavAndRecentFlows()
         backgroundRefresh()
     }
 
@@ -124,6 +131,56 @@ class LiveTvViewModel @Inject constructor(
             .onEach { s -> categoryIdFlow.value = s.selectedCategoryId }
             .launchIn(viewModelScope)
     }
+
+    // ── Phase 3: favourites + recently-watched ────────────────────────────────
+
+    /** Collect favourite-channel, favourite-category, and recently-watched Flows into state. */
+    private fun observeFavAndRecentFlows() {
+        repository.observeFavChannels()
+            .catch { e -> android.util.Log.e("LiveTvViewModel", "FavChannels flow error", e) }
+            .onEach { entities ->
+                val channels = entities.map { it.toDomain() }
+                _state.update { it.copy(
+                    favChannels = channels,
+                    favChannelIds = channels.map { ch -> ch.id }.toSet(),
+                ) }
+            }
+            .launchIn(viewModelScope)
+
+        repository.observeFavCategories()
+            .catch { e -> android.util.Log.e("LiveTvViewModel", "FavCategories flow error", e) }
+            .onEach { entities ->
+                _state.update { it.copy(favCategories = entities.map { it.toDomain() }) }
+            }
+            .launchIn(viewModelScope)
+
+        repository.observeRecent(15)
+            .catch { e -> android.util.Log.e("LiveTvViewModel", "Recent flow error", e) }
+            .onEach { entities ->
+                _state.update { it.copy(recent = entities.map { it.toDomain() }) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    /** Toggle the favourite state of a channel (persisted in Room). */
+    fun toggleFavChannel(id: String) {
+        viewModelScope.launch { repository.toggleFavouriteChannel(id) }
+    }
+
+    /** Toggle the favourite state of a category (persisted in Room). */
+    fun toggleFavCategory(id: String) {
+        viewModelScope.launch { repository.toggleFavouriteCategory(id) }
+    }
+
+    /**
+     * Record that a channel has been played. Call this whenever a channel starts playback so it
+     * appears in the recently-watched list.
+     */
+    fun onChannelPlayed(channelId: String) {
+        viewModelScope.launch { repository.recordWatched(channelId) }
+    }
+
+    // ── Background refresh ────────────────────────────────────────────────────
 
     /**
      * Trigger a background network refresh. If Room already has fresh data (within TTL) this
