@@ -6,7 +6,9 @@ import com.itrepos.aiotv.data.remote.iptv.XmltvParser
 import com.itrepos.aiotv.data.remote.iptv.XtreamApi
 import com.itrepos.aiotv.domain.model.Channel
 import com.itrepos.aiotv.domain.model.EpgProgram
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import javax.inject.Inject
@@ -38,10 +40,11 @@ class IptvRepository @Inject constructor(
         return channels
     }
 
-    private fun fetchM3u(url: String): List<Channel> {
+    private suspend fun fetchM3u(url: String): List<Channel> = withContext(Dispatchers.IO) {
         val req = Request.Builder().url(url).build()
-        val body = okHttpClient.newCall(req).execute().body?.string() ?: return emptyList()
-        return M3uParser.parse(body)
+        val body = okHttpClient.newCall(req).execute().body?.string()
+            ?: return@withContext emptyList()
+        M3uParser.parse(body)
     }
 
     private suspend fun fetchXtream(server: String, user: String, pass: String): List<Channel> {
@@ -65,11 +68,14 @@ class IptvRepository @Inject constructor(
         if (cachedEpg.isNotEmpty()) return cachedEpg
         val url = appDataStore.xmltvUrl.first()
         if (url.isEmpty()) return emptyList()
-        return try {
-            val req = Request.Builder().url(url).build()
-            val body = okHttpClient.newCall(req).execute().body?.string() ?: return emptyList()
-            XmltvParser.parse(body).also { cachedEpg = it }
-        } catch (e: Exception) { emptyList() }
+        return withContext(Dispatchers.IO) {
+            try {
+                val req = Request.Builder().url(url).build()
+                val body = okHttpClient.newCall(req).execute().body?.string()
+                    ?: return@withContext emptyList()
+                XmltvParser.parse(body).also { cachedEpg = it }
+            } catch (e: Exception) { emptyList() }
+        }
     }
 
     fun clearCache() {

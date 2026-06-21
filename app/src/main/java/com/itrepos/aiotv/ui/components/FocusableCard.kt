@@ -3,7 +3,6 @@ package com.itrepos.aiotv.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Box
@@ -16,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.itrepos.aiotv.ui.theme.AccentPrimary
 import com.itrepos.aiotv.ui.theme.Outline
 import com.itrepos.aiotv.ui.theme.SurfaceCard
@@ -43,12 +43,15 @@ fun FocusableCard(
     Card(
         onClick = onClick,
         modifier = modifier
+            // Raise the focused card so the scale-up draws above its neighbours
+            // instead of being clipped under the next item in a LazyRow.
+            .zIndex(if (focused) 1f else 0f)
             .scale(scale)
-            .graphicsLayer { shadowElevation = elevation }
-            .focusable(interactionSource = interactionSource),
+            .graphicsLayer { shadowElevation = elevation },
         colors = CardDefaults.cardColors(containerColor = SurfaceCard),
         border = if (focused) BorderStroke(2.dp, AccentPrimary) else BorderStroke(1.dp, Outline),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        interactionSource = interactionSource,
     ) {
         Box { content() }
     }

@@ -14,7 +14,9 @@ interface TorBoxApi {
     suspend fun checkCached(
         @Header("Authorization") bearer: String,
         @Query("hash") hash: String,
-        @Query("format") format: String = "list",
+        // "object" returns data as a hash-keyed map, matching CachedCheckResponse.data.
+        // ("list" returns a JSON array and would fail to deserialize into the Map.)
+        @Query("format") format: String = "object",
         @Query("list_files") listFiles: Boolean = true,
     ): CachedCheckResponse
 

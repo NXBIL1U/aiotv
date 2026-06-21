@@ -3,9 +3,11 @@ package com.itrepos.aiotv.ui.components
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
@@ -28,6 +33,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import com.itrepos.aiotv.R
 import com.itrepos.aiotv.ui.navigation.Screen
 import com.itrepos.aiotv.ui.theme.AccentPrimary
-import com.itrepos.aiotv.ui.theme.Background
 import com.itrepos.aiotv.ui.theme.SurfaceCard
 
 data class NavItem(
@@ -70,7 +76,7 @@ fun TvNavRail(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val railWidth by animateDpAsState(
-        targetValue = if (expanded) 200.dp else 56.dp,
+        targetValue = if (expanded) 220.dp else 64.dp,
         animationSpec = tween(200),
         label = "railWidth",
     )
@@ -79,40 +85,83 @@ fun TvNavRail(
         modifier = modifier
             .width(railWidth)
             .fillMaxHeight()
-            .background(SurfaceCard.copy(alpha = 0.9f))
+            .background(SurfaceCard.copy(alpha = 0.95f))
+            // Expand while any item inside the rail has focus; collapse when focus leaves.
+            .onFocusChanged { expanded = it.hasFocus }
             .selectableGroup()
+            .padding(vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Spacer(Modifier.height(24.dp))
         navItems.forEach { item ->
             val selected = selectedRoute == item.screen.route
             val interactionSource = remember { MutableInteractionSource() }
             val focused by interactionSource.collectIsFocusedAsState()
-            if (focused && !expanded) expanded = true
+            val itemBackground = when {
+                focused -> AccentPrimary.copy(alpha = 0.30f)
+                selected -> AccentPrimary.copy(alpha = 0.15f)
+                else -> Color.Transparent
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
-                    .background(if (selected) AccentPrimary.copy(alpha = 0.15f) else Color.Transparent)
-                    .focusable(interactionSource = interactionSource)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 8.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(itemBackground)
+                    .then(
+                        if (focused) Modifier.border(2.dp, AccentPrimary, RoundedCornerShape(8.dp))
+                        else Modifier
+                    )
+                    // clickable is focusable and handles D-pad center / Enter, so this
+                    // actually navigates on TV (the old .focusable did nothing on select).
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                    ) { onNavigate(item.screen.route) }
+                    .padding(horizontal = 12.dp),
             ) {
                 Icon(
                     imageVector = item.icon,
                     contentDescription = stringResource(item.labelRes),
-                    tint = if (selected || focused) AccentPrimary else Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.size(24.dp),
+                    tint = if (selected || focused) AccentPrimary else Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(26.dp),
                 )
                 if (expanded) {
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text = stringResource(item.labelRes),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (selected || focused) AccentPrimary else Color.White.copy(alpha = 0.8f),
+                        color = if (selected || focused) AccentPrimary else Color.White.copy(alpha = 0.85f),
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Side navigation rail for medium/expanded widths (e.g. Galaxy Fold 7 unfolded,
+ * tablets) — touch-first, unlike [TvNavRail] which is built for the D-pad.
+ */
+@Composable
+fun SideNavRail(
+    selectedRoute: String,
+    onNavigate: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NavigationRail(
+        modifier = modifier,
+        containerColor = SurfaceCard,
+    ) {
+        navItems.forEach { item ->
+            NavigationRailItem(
+                selected = selectedRoute == item.screen.route,
+                onClick = { onNavigate(item.screen.route) },
+                icon = { Icon(item.icon, contentDescription = stringResource(item.labelRes)) },
+                label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelMedium) },
+            )
         }
     }
 }

@@ -17,6 +17,7 @@ fun <T> ContentRail(
     title: String,
     items: List<T>,
     modifier: Modifier = Modifier,
+    key: ((T) -> Any)? = null,
     itemContent: @Composable (T) -> Unit,
 ) {
     if (items.isEmpty()) return
@@ -31,7 +32,9 @@ fun <T> ContentRail(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(items) { item -> itemContent(item) }
+            items(items = items, key = key?.let { k -> { item: T -> k(item) } }) { item ->
+                itemContent(item)
+            }
         }
     }
 }

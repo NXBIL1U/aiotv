@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,10 +33,14 @@ fun HeroSection(
             .height(320.dp)
     ) {
         if (item != null) {
+            val fallback = ColorPainter(Color(0xFF0D0D1E))
             AsyncImage(
                 model = item.backdropUrl ?: item.posterUrl,
                 contentDescription = item.name,
                 contentScale = ContentScale.Crop,
+                placeholder = fallback,
+                error = fallback,
+                fallback = fallback,
                 modifier = Modifier.fillMaxSize(),
             )
         } else {

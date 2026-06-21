@@ -2,15 +2,20 @@ package com.itrepos.aiotv.ui.screen.detail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
@@ -24,9 +29,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.domain.model.Stream
@@ -50,48 +57,177 @@ fun DetailScreen(
         return
     }
 
-    LazyColumn(Modifier.fillMaxSize()) {
-        item {
-            Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
-                }
-                Text(state.meta?.name ?: id, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
-            }
+    // Focus the first stream row once streams are available.
+    val firstStreamFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(state.streams.isNotEmpty()) {
+        if (state.streams.isNotEmpty()) {
+            runCatching { firstStreamFocusRequester.requestFocus() }
         }
-        state.meta?.let { meta ->
-            item {
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    meta.description?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(8.dp))
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val twoPane = maxWidth >= 840.dp
+
+        if (twoPane) {
+            Row(Modifier.fillMaxSize()) {
+                // Left pane: header + meta/description.
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    DetailHeader(title = state.meta?.name ?: id, onBack = onBack)
+                    state.meta?.description?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
                     }
+                    ErrorAndResolving(error = state.error, resolving = state.resolving)
                 }
-            }
-        }
-        if (state.streams.isEmpty()) {
-            item {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("No streams found. Add a Stremio addon in Settings.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Right pane: scrollable stream list.
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    StreamsList(
+                        state = state,
+                        firstStreamFocusRequester = firstStreamFocusRequester,
+                        onResolve = { stream ->
+                            viewModel.resolveStream(stream) { url ->
+                                onPlayStream(url, stream.title ?: state.meta?.name ?: "")
+                            }
+                        },
+                    )
                 }
             }
         } else {
-            item { Text("Streams", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp)) }
-            items(state.streams) { stream ->
-                StreamRow(stream = stream, onClick = {
-                    viewModel.resolveStream(stream) { url ->
-                        onPlayStream(url, stream.title ?: state.meta?.name ?: "")
+            LazyColumn(Modifier.fillMaxSize()) {
+                item(key = "header") { DetailHeader(title = state.meta?.name ?: id, onBack = onBack) }
+                state.meta?.description?.let { desc ->
+                    item(key = "description") {
+                        Column(Modifier.padding(horizontal = 16.dp)) {
+                            Text(
+                                desc,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
                     }
-                })
+                }
+                item(key = "status") { ErrorAndResolving(error = state.error, resolving = state.resolving) }
+                if (state.streams.isEmpty()) {
+                    item(key = "empty") {
+                        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("No streams found. Add a Stremio addon in Settings.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    item(key = "streams_header") {
+                        Text("Streams", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
+                    }
+                    items(state.streams, key = { streamKey(it) }) { stream ->
+                        StreamRow(
+                            stream = stream,
+                            enabled = !state.resolving,
+                            modifier = if (stream === state.streams.firstOrNull()) {
+                                Modifier.focusRequester(firstStreamFocusRequester)
+                            } else {
+                                Modifier
+                            },
+                            onClick = {
+                                viewModel.resolveStream(stream) { url ->
+                                    onPlayStream(url, stream.title ?: state.meta?.name ?: "")
+                                }
+                            },
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StreamRow(stream: Stream, onClick: () -> Unit) {
+private fun DetailHeader(title: String, onBack: () -> Unit) {
+    Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+        }
+        Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+    }
+}
+
+@Composable
+private fun ErrorAndResolving(error: String?, resolving: Boolean) {
+    if (error != null) {
+        Text(
+            error,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+    if (resolving) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(Modifier.size(20.dp))
+            Text(
+                "Preparing stream…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StreamsList(
+    state: DetailState,
+    firstStreamFocusRequester: FocusRequester,
+    onResolve: (Stream) -> Unit,
+) {
+    if (state.streams.isEmpty()) {
+        Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+            Text("No streams found. Add a Stremio addon in Settings.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize()) {
+        item(key = "streams_header") {
+            Text("Streams", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
+        }
+        items(state.streams, key = { streamKey(it) }) { stream ->
+            StreamRow(
+                stream = stream,
+                enabled = !state.resolving,
+                modifier = if (stream === state.streams.firstOrNull()) {
+                    Modifier.focusRequester(firstStreamFocusRequester)
+                } else {
+                    Modifier
+                },
+                onClick = { onResolve(stream) },
+            )
+        }
+    }
+}
+
+private fun streamKey(stream: Stream): String =
+    stream.url ?: stream.infoHash?.let { "hash:$it:${stream.fileIdx ?: 0}" } ?: (stream.title ?: "stream")
+
+@Composable
+private fun StreamRow(
+    stream: Stream,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small),
@@ -107,7 +243,7 @@ private fun StreamRow(stream: Stream, onClick: () -> Unit) {
                 Text("CACHED", style = MaterialTheme.typography.labelSmall, color = CachedBadge)
             }
         }
-        IconButton(onClick = onClick) {
+        IconButton(onClick = onClick, enabled = enabled) {
             Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.primary)
         }
     }

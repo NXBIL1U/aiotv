@@ -20,6 +20,7 @@ data class DetailState(
     val streams: List<Stream> = emptyList(),
     val resolvedUrl: String? = null,
     val error: String? = null,
+    val resolving: Boolean = false,
 )
 
 @HiltViewModel
@@ -57,18 +58,30 @@ class DetailViewModel @Inject constructor(
     }
 
     fun resolveStream(stream: Stream, onResolved: (String) -> Unit) {
+        if (_state.value.resolving) return
         viewModelScope.launch {
+            _state.value = _state.value.copy(resolving = true, error = null)
             try {
                 val url = stream.url
                     ?: run {
-                        val infoHash = stream.infoHash ?: return@launch
-                        val torrentId = torBoxRepo.createTorrent("magnet:?xt=urn:btih:$infoHash") ?: return@launch
-                        val info = torBoxRepo.pollUntilReady(torrentId) ?: return@launch
-                        val fileId = info.files.firstOrNull()?.id ?: return@launch
+                        val infoHash = stream.infoHash
+                            ?: throw IllegalStateException("Stream has no URL or info hash")
+                        val torrentId = torBoxRepo.createTorrent("magnet:?xt=urn:btih:$infoHash")
+                            ?: throw IllegalStateException("Failed to create torrent")
+                        val info = torBoxRepo.pollUntilReady(torrentId)
+                            ?: throw IllegalStateException("Torrent did not become ready")
+                        val fileId = info.files.firstOrNull()?.id
+                            ?: throw IllegalStateException("Torrent has no playable files")
                         torBoxRepo.getDownloadUrl(torrentId, fileId)
                     }
+                _state.value = _state.value.copy(resolving = false, resolvedUrl = url)
                 onResolved(url)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    resolving = false,
+                    error = e.message ?: "Failed to resolve stream",
+                )
+            }
         }
     }
 }

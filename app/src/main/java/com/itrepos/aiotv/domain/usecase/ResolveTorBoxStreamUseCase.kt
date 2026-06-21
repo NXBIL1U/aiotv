@@ -8,19 +8,9 @@ class ResolveTorBoxStreamUseCase @Inject constructor(private val repo: TorBoxRep
 
     suspend operator fun invoke(stream: Stream): String? {
         val infoHash = stream.infoHash ?: return stream.url
-        val cached = repo.checkCached(listOf(infoHash))
-        return if (cached[infoHash] == true) {
-            null // caller will createTorrent and requestdl immediately
-        } else {
-            val torrentId = repo.createTorrent(buildMagnet(infoHash)) ?: return null
-            val info = repo.pollUntilReady(torrentId) ?: return null
-            val fileId = pickFile(info.files.map { it.id to (it.name ?: "") }, stream.fileIdx)
-            repo.getDownloadUrl(torrentId, fileId)
-        }
-    }
-
-    suspend fun resolveWithCache(stream: Stream): String? {
-        val infoHash = stream.infoHash ?: return stream.url
+        // Add the torrent and wait for TorBox to expose a download URL. Cached
+        // torrents reach "completed" almost immediately, so the same flow serves
+        // both cached and uncached cases (no separate, never-completed branch).
         val torrentId = repo.createTorrent(buildMagnet(infoHash)) ?: return null
         val info = repo.pollUntilReady(torrentId) ?: return null
         val fileId = pickFile(info.files.map { it.id to (it.name ?: "") }, stream.fileIdx)

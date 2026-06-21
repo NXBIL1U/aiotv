@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         val isTv = uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
 
         setContent {
-            AioTvTheme {
+            AioTvTheme(isTv = isTv) {
                 val windowSizeClass = calculateWindowSizeClass(this)
                 AppNavigation(isTv = isTv, windowSizeClass = windowSizeClass)
             }
