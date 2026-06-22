@@ -100,20 +100,23 @@ Open the app → navigate to **Settings** and configure:
 
 ```
 data/
-  local/        DataStore (settings, watch progress)
+  local/        DataStore (settings, watch progress, quality pref), Room cache (channels/categories/EPG)
   remote/
-    iptv/       XtreamAPI, M3uParser, XmltvParser
-    stremio/    StremioApi (catalog/meta/stream)
+    iptv/       XtreamApi, M3uParser, XmltvParser, RegionClassifier
+    stremio/    StremioApi (catalog/meta/stream + Cinemeta search; CINEMETA_HOSTS)
     torbox/     TorBoxApi (cached check, create, poll, dl)
-  repository/   IptvRepository, StremioRepository, TorBoxRepository
+  repository/   IptvRepository, LiveTvRepository, StremioRepository, MetaRepository (Cinemeta),
+                SearchRepository (Cinemeta search), TorBoxRepository
 domain/
-  model/        Channel, EpgProgram, MediaItem, Stream, WatchProgress
-  usecase/      GetChannels, GetCatalog, GetStreams, ResolveTorBoxStream
+  model/        Channel, EpgProgram, MediaItem, Episode/SeriesMeta, Stream (quality/seeders/[TB+]), WatchProgress
+  playback/     PlaybackController (now-playing session: failover + next-episode), BingeSequencing
+  StreamRanker (cached→English→quality→seeders), StreamParsing
+  usecase/      GetChannels, GetCatalog, GetStreams, SearchVod, ResolveStream
 ui/
-  theme/        Material3 dark colour scheme
-  navigation/   NavHost, Screen sealed class
-  components/   FocusableCard, MediaCard, ContentRail, HeroSection, NavRail
-  screen/       home, guide, player, search, detail, addons, settings
+  theme/        Dark + Netflix-red (tonal red interactive; #E50914 brand-only)
+  navigation/   NavHost, Screen sealed class (Player route carries url/title/progressId)
+  components/   MediaCard, ContentRail, HeroSection, NavRail
+  screen/       home, live, player (auto-next + failover), search (VOD-only), detail (Netflix movie/series), settings, addons
 ```
 
 - No Google Play Services dependency — works on Fire TV

@@ -1,47 +1,60 @@
-# AIO TV — Session Handover (2026-06-22)
+# AIO TV — Session Handover (2026-06-22, late)
 
-Paste this into the next Claude Code session to continue seamlessly.
+Paste into the next Claude Code session to continue seamlessly. Supersedes the previous handover.
 
 ## What this is
-AIO TV — a native Android app (Kotlin, Jetpack Compose + androidx.tv, Media3/ExoPlayer, Hilt,
-Retrofit/kotlinx, **Room**, DataStore, Coil). One APK for Fire TV, Android TV/Google TV, Galaxy
-Fold, phones. Combines **live IPTV** (Xtream/M3U) with **Stremio-style VOD resolved via TorBox**.
-Repo: `/Users/nayemrezavox/web-projects/home-projects/aiotv` (GitHub `NXBIL1U/aiotv`, branch `main`).
+AIO TV — native Android (Kotlin, Compose + Material3, Media3/ExoPlayer, Hilt, Retrofit/kotlinx,
+Room, DataStore, Coil). One APK for Fire TV / Android TV / Galaxy Fold / phones. Combines **live
+IPTV** (Xtream/M3U) with **Stremio VOD resolved via TorBox**. Repo:
+`/Users/nayemrezavox/web-projects/home-projects/aiotv` (GitHub `NXBIL1U/aiotv`).
 
-## READ FIRST (in order)
-1. **Memory:** `/Users/nayemrezavox/.claude/projects/-Users-nayemrezavox-web-projects-home-projects-aiotv/memory/MEMORY.md` and the files it links — esp. *north-star intent*, *prefer-asking-for-observable-results*, *emulator-no-host-audio*, *emulator-dns-breaks-on-vpn-toggle*.
-2. **`DESIGN.md`** (north-star, phases, §8 Home decision) and **`TODO.md`** (phase-tagged checklist — current).
-3. **Specs/plans** under `docs/superpowers/`: `specs/2026-06-21-live-tv-core-experience-design.md`, `specs/2026-06-21-live-tv-ux-v2-design.md`, `plans/2026-06-22-live-tv-sky-refinement.md`.
+## READ FIRST
+1. **Auto-memory:** `~/.claude/projects/-Users-nayemrezavox-web-projects-home-projects-aiotv/memory/MEMORY.md` + linked files — esp. *north-star-product-intent*, *prefer-asking-for-observable-results*, *emulator-no-host-audio*, *emulator-dns-breaks-on-vpn-toggle*, **`strem-fun-blocked-by-vpn-cloudflare`** (new, critical for VOD validation).
+2. **`DESIGN.md`** + **`TODO.md`** (both current as of this handover).
+3. **Specs/plans** under `docs/superpowers/specs/` & `/plans/` (2026-06-22 dates).
+4. **`.superpowers/sdd/progress.md`** (gitignored, on disk) — detailed per-task ledger of all the subagent-driven work this session.
 
-## Where we are (all landed on `main`, latest `dfd9f8c`)
-- **Live TV is done and validated** end-to-end on the phone emulator:
-  - Original OOM fix: Xtream `get.php` (340 MB M3U) → compact `player_api.php` JSON; live plays via raw **MPEG-TS `.ts`** (not HLS — Xtream HLS 401/403s); 15 s/IP connect timeout for failover.
-  - **Cache-first Room layer** (channels/categories/EPG persist; cold start w/ fresh cache = 0 network).
-  - **Region/Language filter** default UK+US+EN (~7.2k of 27.5k), via unit-tested `RegionClassifier`.
-  - **Favourites** (channels + categories) + **recently-watched**.
-  - **Sky-mobile-style "For You" landing**: single "All Channels ▾" category control (Region moved to **Settings**), rich rows (channel number + logo + now/next `HH:mm · title` + progress bar + ★), and a **persistent D-pad category rail** on wide/TV.
+## Branch state (IMPORTANT)
+- **`main` = `ab7e917`, PUSHED to origin.** Contains: **VOD series spine + Netflix-style Detail page + dark/Netflix-red theme** AND **VOD-only Search (Cinemeta) + Home channel-strip**.
+- **`feat/binge-watch` = local, off main, ~12 commits, NOT pushed.** **Auto-next-episode (Netflix countdown) + mid-play failover + quality preference (1080p/4K).** DONE, emulator-validated end-to-end, final-reviewed + all fixes applied. **Owner chose: keep local, stack the next feature on it, merge later.**
+- **NEXT: `feat/track-selection` branches OFF `feat/binge-watch`** (stacked — it builds on the player code there).
 
-## What's left (priority order)
-1. **Home screen redesign** (owner `nabz`; DESIGN §8, TODO): make Home **VOD-only, network categories** (Netflix, Disney, … from the Stremio addon catalogs → TorBox/Torrentio) + Continue Watching; **remove the IPTV live-now rail**. This *also* fixes Home's slow first paint (it currently loads all 27.5k channels via `HomeViewModel.getChannels()` and gates `isLoading` on it). **Brainstorm first** (how "networks" map to addon catalogs), then build. _Quick interim win available: just delete the channel load/rail from `HomeViewModel`+`HomeScreen`._
-2. **TV-emulator validation pass** of Live TV (D-pad category rail + rows) on `aiotv_tv` — only phone (portrait + landscape) was validated.
-3. **Confirm live-TV audio on hardware** (emulator doesn't route audio).
-4. **App-wide Netflix-style navigation + visual refresh** (web-validated spec: `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`): persistent nav shell (`NavigationSuiteScaffold` phone/foldable + `androidx.tv` `NavigationDrawer` TV; immersive on player/Detail; move chrome out of `HomeScreen`), **dark + Netflix-red** theme (tonal red for interactive per a11y; raw `#E50914` brand-only), and a **wordless app icon** (concepts in `docs/superpowers/icon-concepts/`, lean "stacked streams" — owner wants distinctive, not play/TV). Adopt Lucide/Tabler for in-app icons. Theme + icon = quick wins; nav shell = its own effort.
-5. Standing TODO.md items: pull-to-refresh + Home/Search reacting live to source edits; wire `clearCache()` to settings changes; Detail poster on phone; TV overscan on Settings/Search/Detail; OkHttp 5 `fastFallback` (true IP racing, needs the upgrade); Phase 2 series one-tap (§6a); Fire TV hardware test.
+## ⏭️ Immediate next task: player audio/subtitle track selection
+**Brainstorm is DONE and the design is APPROVED (owner, 2026-06-22). Pick up at: write the spec → owner reviews → plan → build.**
 
-## Build / run / emulators (this Mac)
+**Approved design (Option 1 — built-in + smart defaults):**
+- **Default track preferences** on the ExoPlayer (the real fix for the "foreign subs/audio auto-selected" problem we saw — a torrent played with Hungarian subs burned in): `trackSelectionParameters` → **prefer English audio** (`setPreferredAudioLanguage("en")`, falls back to source default) and **subtitles OFF by default** (don't auto-select any text track, so a "default"-flagged foreign sub doesn't show).
+- **Manual override = Media3 `PlayerView`'s built-in UI** — enable `setShowSubtitleButton(true)` (CC button) + the existing settings **gear menu** (already there; offers audio/subtitle track selection). No custom UI for v1.
+- **Scope:** in-stream tracks only (audio + embedded subs). Sideloaded subs via the **Stremio `/subtitles` addon** is deferred (`[P4]`; the owner has no subtitles addon installed).
+- **TV is the decider:** if the built-in track menu is clunky on D-pad in TV-emulator validation, *that* triggers building a **custom Compose track sheet** (Option 2, NextPlayer-style, on-theme). Don't build custom unless TV says so.
+- File to touch: `ui/screen/player/PlayerScreen.kt` (the `ExoPlayer.Builder` + `PlayerView` `AndroidView` config, ~lines 155-327). Player uses the built-in controller (`useController = true`).
+
+## What shipped this session (all on main unless noted)
+1. **VOD series spine + Netflix Detail (on main):** Cinemeta meta (movies+series, host fallback `cinemeta-live.strem.io`→`v3-cinemeta.strem.fun`); per-episode stream requests (`tt…:S:E`, fixed the bare-series bug); `StreamRanker` (cached `[TB+]`→English→quality→seeders); auto-play best cached + 20s auto-advance; per-episode resume (`progressId` route param); Netflix Detail (hero/season selector/episode list/thumbnails/two-pane ≥840dp). Movie meta via Cinemeta too. Dark+Netflix-red theme.
+2. **VOD-only Search + Home channel-strip (on main):** Search now queries Cinemeta search (`catalog/<type>/top/search=`) for movies+series; **channels removed from Search** (channel search stays in Live TV tab); Home "Live Now" rail + 27.5k-channel load removed (paints ~3s vs ~14s).
+3. **Binge/watch (feat/binge-watch, local):** `@Singleton PlaybackController` session holder; auto-next-episode countdown; silent failover (`onPlayerError→swap MediaItem→prepare`, no Media3 fallback-URL primitive); quality pref (source-ranking, default 1080p). `BingeSequencing` (next-ep + `bingeGroup`, from stremio-core MIT).
+
+## Process cycle (KEEP THIS)
+**brainstorming → write spec (`docs/superpowers/specs/`) → OWNER REVIEWS SPEC → writing-plans (`docs/superpowers/plans/`) → subagent-driven-development → validate on emulator → final whole-branch review → fix → (merge when owner asks).**
+- Subagent-driven: fresh implementer subagent per task (sonnet; opus for big integration tasks), a reviewer subagent per task, a final opus whole-branch review, fix subagents for findings. Use the SDD skill scripts: `task-brief PLAN N`, `review-package BASE HEAD` (in `~/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/`).
+- **Subagents run in THIS workspace (no isolation) → their commits land directly on the branch** (no ff-merge dance). Verify HEAD advanced.
+- TDD the pure logic (JUnit4 only — no mockk; use `runBlocking`, hand-fake interfaces). Validate UI/VM/IO on the emulator.
+- Commit locally after each task. **Merge/push only when owner asks** (`git fetch` first, fast-forward only, never force).
+
+## Build / run / emulator
 - `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"; export ANDROID_HOME="$HOME/Library/Android/sdk"; ./gradlew assembleDebug`
-- APK: `app/build/outputs/apk/debug/app-debug.apk`. Package `com.itrepos.aiotv`.
-- adb: `$ANDROID_HOME/platform-tools/adb`. Emulators: `aiotv_phone`(API35), `aiotv_tv`(API36), `aiotv_fold`(API35). Run ONE at a time. Current running serial has been **`emulator-5554`** (it was relaunched with `-dns-server 8.8.8.8,8.8.4.4`).
-- The owner's M3U (Xtream `get.php`) + addons are saved in DataStore on the emulator.
+- APK: `app/build/outputs/apk/debug/app-debug.apk`. Package `com.itrepos.aiotv`. adb: `$ANDROID_HOME/platform-tools/adb`.
+- Emulator running: **`emulator-5554`** (`aiotv_phone`, API35). Also `aiotv_tv`(API36), `aiotv_fold`(API35) — one at a time. Owner's M3U + addons are in DataStore on it.
 
-## Critical gotchas (learned this session)
-- **The IPTV provider is blocked by the owner's UK ISP (Virgin Media).** It's only reachable over a **VPN**. If channel fetches time out / `http=000`, the VPN is off. (Down-detectors show "up" because they're not on Virgin.)
-- **Toggling the host VPN breaks the running emulator's DNS** (`UnknownHostException`) — restart the emulator with `-dns-server 8.8.8.8,8.8.4.4` (serial may change). Airplane-mode toggle does NOT fix it.
-- **Emulator plays video but no audio on the Mac** — verify audio on hardware, don't chase it.
-- **Validation:** build + run on the emulator. For things the owner can SEE (video/UI), ASK them rather than decoding screenshots — UNLESS they're away, then screenshot. `uiautomator dump` is flaky on Compose lists (often returns sparse/empty) — prefer screenshots for the channel list.
-- **Subagents commit in isolated git worktrees** (`.claude/worktrees/`, gitignored) — their commits do NOT auto-advance your branch ref. After a subagent reports DONE, `git merge --ff-only <subagent-tip>` (or commit in your own session) to bring the work onto the branch. Verify with `git log`.
-- **Collaboration:** `nabz`/`nabzlive3` edits this repo in parallel. Prefer feature branch + PR; the owner has sometimes said push straight to main — follow their per-time call. Verify fast-forward (no force-push) before pushing.
-- Provider re-fetch (27.5k channels: download + RegionClassifier + Room upsert) takes ~**36 s** — wait long enough before asserting "empty". A Room schema change needs a `Migration` (not destructive) to keep favourites/recents (see `DatabaseModule.MIGRATION_1_2`).
+## CRITICAL gotchas
+- **VPN is mutually exclusive for VOD vs IPTV.** `strem.fun` (Torrentio + Cinemeta) is **Cloudflare-403'd on the owner's VPN datacenter IP** → **VOD validation needs VPN OFF** (residential Virgin IP). IPTV needs VPN ON (Virgin blocks the provider). Can't do both at once. (`http=403`/HTML on strem.fun ⇒ VPN is on.)
+- **Toggling host VPN breaks the running emulator's DNS** → restart with `-dns-server 8.8.8.8,8.8.4.4` (serial may change).
+- **Emulator: no host audio; 4K-HEVC renders BLACK** (decoder runs, no visible frame). The 1080p quality default usually picks a decodable source. Confirm audio + 4K video on **hardware**.
+- **Player seekbar needs a DRAG, not a tap** to seek: `adb shell input swipe <x1> <y> <x2> <y> 500` (a tap toggles play/pause). Useful for forcing end-of-episode to test auto-next.
+- **Validate via screenshots** (`adb exec-out screencap -p`); `uiautomator dump` is flaky on Compose lists. Owner present this session → ask/show; when away → screenshot.
+- Streams for the owner's `torbox=`-configured Torrentio arrive **pre-resolved as `url` with `[TB+]` cached marker** (NO infoHash) — cached detection = the `[TB+]` marker, not `checkCached(hash)`.
+- **Collaboration:** `nabz` owns the **Home VOD network-category rows** (we only removed channels from Home). Coordinate Home edits.
 
-## Process
-Use the superpowers skills: **brainstorming → writing-plans → subagent-driven-development** for features; **systematic-debugging** for bugs. Save specs to `docs/superpowers/specs/`, plans to `docs/superpowers/plans/`.
+## Notable follow-ups (in TODO/DESIGN)
+- **OSS adopt opportunities (audit logged):** (1) **iptv-org/database** (Unlicense) for channel region/language — adopt over `RegionClassifier`; (2) **media3-ui-compose** (Apache-2.0) for player UI polish; (3) **Stremio `/subtitles` addon** for sideloaded subs. Hand-rolling was right elsewhere (CloudStream is GPL, etc.).
+- Home → VOD network rails (nabz). Player subtitle/track UI (← the next task). Fold/hinge posture. TV-emulator validation pass. Confirm audio on hardware. Binge deferred edges: latch-restore on process-death; resume-aware next-episode (intentional).
