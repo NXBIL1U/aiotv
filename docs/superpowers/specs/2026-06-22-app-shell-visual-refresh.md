@@ -33,8 +33,8 @@ One cohesive, Netflix-grade product across every surface: a **persistent navigat
   - `A` TV+play, `B` framed play, `C` play+arcs — **rejected** (too literal / YouTube-ish).
   - **`D` "stacked streams"** (3 angled graded-red bars — many sources → one app) — _current front-runner_.
   - `E` "signal burst" (ray-burst + glowing core) — energetic but reads a bit sun/asterisk-ish.
-- **Owner pick: _TBD_** (lean D; iterate on a distinctive mark — e.g. a bespoke geometric monogram /
-  abstract "convergence" glyph). Icon design is iterative; budget a round or two.
+- **Owner pick: D — "stacked streams"** (decided 2026-06-22). Refine to the final adaptive icon
+  (foreground in the safe-zone + `<monochrome>` layer); iterate polish as needed.
 - **Build:** Android Studio → New → Image Asset → "Launcher Icons (Adaptive and Legacy)" →
   `mipmap-anydpi-v26/ic_launcher.xml` (`<adaptive-icon>` foreground + background) + legacy PNGs;
   design foreground within the ~66% safe-zone; add a **`<monochrome>`** layer for Android-13 themed
@@ -79,14 +79,19 @@ chips) so iconography is consistent and TV-legible:
 (sideloaded) APK triggers no attribution/redistribution obligations. **Recommendation:** Lucide
 (or Tabler) for the core set + Material Symbols where M3-component parity matters.
 
-## Sequencing & risk
-1. **Theme (red, tonal)** — contained, immediate visual change. 2. **App icon** — independent.
-3. **In-app icon pack swap** — low risk, do alongside the theme. 4. **Nav shell** — the bigger
-refactor (touches `MainActivity`/`AppNavigation` + every screen's chrome assumptions; care on
-back-stack, TV focus, immersive transitions). Theme + icon are quick wins; the shell is a dedicated
-effort (likely its own spec).
+## Decisions (resolved 2026-06-22, owner)
+1. **Theme contrast:** tonal red for interactive (Material-Theme-Builder dark `primary`, ≈`#FFB3AF`)
+   + raw `#E50914` on brand surfaces only — a11y-safe. [§A]
+2. **App icon:** concept **D "stacked streams"** (wordless); refine to the final adaptive icon. [§B]
+3. **Nav-shell scope:** **phone + foldable first**; TV (`androidx.tv` `NavigationDrawer`) as a
+   follow-up. [§C]
+4. **Sequencing:** ship the **whole workstream together** — theme + app icon + in-app icon pack
+   (Lucide/Tabler) + the **phone/foldable** nav shell — as ONE combined push; the TV shell follows.
 
-## Open questions for the owner
-1. **Icon concept** — A / B / C / iterate? (recommend B polished, C original).
-2. **Red intensity** — true Netflix `#E50914`, or a slightly deeper/muted brand red?
-3. **TV scope** — build the TV `NavigationDrawer` shell in this pass, or phone/foldable first and TV after?
+## Sequencing & risk
+Build order within the one push: **theme tokens → app icon + in-app icon pack → phone/foldable nav
+shell**. The **nav shell is the heavy part** (moves chrome out of `HomeScreen` into an app-level
+shell via `NavigationSuiteScaffold`; touches `MainActivity`/`AppNavigation` + every screen's chrome
+assumption; care on back-stack, immersive player/Detail, insets). TV `NavigationDrawer` is a
+separate follow-up (don't mix `androidx.tv.material3` with `androidx.compose.material3` in one nav
+tree). **Coordinate with `nabz`** (his `nabil/stremio-mirror-fixes` branch) before the shell refactor.
