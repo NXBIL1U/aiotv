@@ -9,7 +9,6 @@ data class StremioManifest(
     val version: String,
     val name: String,
     val description: String? = null,
-    val resources: List<String> = emptyList(),
     val types: List<String> = emptyList(),
     val catalogs: List<StremioCatalogDef> = emptyList(),
     val idPrefixes: List<String> = emptyList(),
@@ -20,6 +19,16 @@ data class StremioCatalogDef(
     val type: String,
     val id: String,
     val name: String? = null,
+    val extra: List<StremioExtraDef> = emptyList(),
+) {
+    val supportsSearch: Boolean get() = extra.any { it.name == "search" }
+    val supportsSkip: Boolean get() = extra.any { it.name == "skip" }
+}
+
+@Serializable
+data class StremioExtraDef(
+    val name: String = "",
+    val isRequired: Boolean = false,
 )
 
 @Serializable
@@ -40,7 +49,7 @@ data class StremioMeta(
     val poster: String? = null,
     val background: String? = null,
     val description: String? = null,
-    val year: Int? = null,
+    val year: String? = null,
     val genres: List<String> = emptyList(),
     @SerialName("imdbRating") val imdbRating: String? = null,
     val videos: List<StremioVideo> = emptyList(),

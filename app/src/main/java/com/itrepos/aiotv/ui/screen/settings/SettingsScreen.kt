@@ -38,6 +38,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import com.itrepos.aiotv.util.CrashLogger
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.res.stringResource
@@ -58,6 +62,9 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var showCrashLog by remember { mutableStateOf(false) }
 
     var torBoxKey by rememberSaveable(state.torBoxKey) { mutableStateOf(state.torBoxKey) }
     var xtreamServer by rememberSaveable(state.xtreamServer) { mutableStateOf(state.xtreamServer) }
@@ -210,28 +217,26 @@ fun SettingsScreen(
         }
         if (state.availableGroups.isNotEmpty()) {
             Text(
-                "Tick groups to include (empty = show all)",
+                "${state.enabledGroups.size} of ${state.availableGroups.size} groups visible — uncheck to hide",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
             state.availableGroups.forEach { group ->
-                val checked = state.enabledGroups.isEmpty() || group in state.enabledGroups
+                val checked = group in state.enabledGroups
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(
                         checked = checked,
-                        onCheckedChange = { on ->
-                            if (state.enabledGroups.isEmpty() && !on) {
-                                // first exclusion — seed filter with all groups, then remove this one
-                                viewModel.selectAllGroups()
-                            }
-                            viewModel.toggleGroup(group, on)
-                        },
+                        onCheckedChange = { on -> viewModel.toggleGroup(group, on) },
                     )
-                    Text(group, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        group,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
         }
@@ -247,6 +252,30 @@ fun SettingsScreen(
         if (state.saved) {
             Spacer(Modifier.height(8.dp))
             Text("Saved!", color = MaterialTheme.colorScheme.primary)
+        }
+
+        Spacer(Modifier.height(24.dp))
+        SectionHeader("Diagnostics")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { showCrashLog = !showCrashLog }) {
+                Text(if (showCrashLog) "Hide Crash Log" else "View Crash Log")
+            }
+            if (showCrashLog) {
+                OutlinedButton(onClick = {
+                    clipboard.setText(AnnotatedString(CrashLogger.read(context)))
+                }) { Text("Copy") }
+                OutlinedButton(onClick = { CrashLogger.clear(context) }) { Text("Clear") }
+            }
+        }
+        if (showCrashLog) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                CrashLogger.read(context),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
     }
 }

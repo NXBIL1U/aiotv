@@ -1,5 +1,6 @@
 package com.itrepos.aiotv.data.repository
 
+import android.util.Log
 import com.itrepos.aiotv.data.local.AppDataStore
 import com.itrepos.aiotv.data.remote.stremio.StremioApi
 import com.itrepos.aiotv.data.remote.stremio.StremioManifest
@@ -7,7 +8,9 @@ import com.itrepos.aiotv.data.remote.stremio.StremioMeta
 import com.itrepos.aiotv.data.remote.stremio.StremioStream
 import com.itrepos.aiotv.data.remote.stremio.catalogUrl
 import com.itrepos.aiotv.data.remote.stremio.metaUrl
+import com.itrepos.aiotv.data.remote.stremio.searchUrl
 import com.itrepos.aiotv.data.remote.stremio.streamUrl
+import com.itrepos.aiotv.domain.model.ContentSection
 import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.domain.model.Stream
 import kotlinx.coroutines.flow.first
@@ -22,29 +25,91 @@ class StremioRepository @Inject constructor(
     private val manifestCache = mutableMapOf<String, StremioManifest>()
 
     private suspend fun getManifests(): List<Pair<String, StremioManifest>> {
-        val urls = appDataStore.addonUrls.first()
-        return urls.map { url ->
-            val manifest = manifestCache.getOrPut(url) {
-                stremioApi.getManifest(url)
-            }
-            val baseUrl = url.removeSuffix("/manifest.json")
-            baseUrl to manifest
+        var urls = appDataStore.addonUrls.first()
+        // Always ensure Cinemeta is present — it's the reliable fallback for movies + series
+        val cinemeta = "https://v3-cinemeta.strem.io/manifest.json"
+        if (cinemeta !in urls) {
+            appDataStore.addAddonUrl(cinemeta)
+            urls = urls + cinemeta
+        }
+        if (urls.size == 1) {
+            // Only Cinemeta — also seed the Netflix catalog addon
+            val netflix = "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxjcnUsaXR2LGJiYyxhbDQ6OkdCOjE3ODIwMDk1MzQ0NDU6MDowOkdC/manifest.json"
+            appDataStore.addAddonUrl(netflix)
+            urls = urls + netflix
+        }
+        return urls.mapNotNull { url ->
+            try {
+                val manifest = manifestCache.getOrPut(url) {
+                    stremioApi.getManifest(url)
+                }
+                val baseUrl = url.removeSuffix("/manifest.json")
+                baseUrl to manifest
+            } catch (_: Exception) { null }
         }
     }
 
-    suspend fun getCatalog(type: String = "movie"): List<MediaItem> {
-        val items = mutableListOf<MediaItem>()
+    suspend fun getCatalog(type: String = "movie"): List<MediaItem> =
+        getCatalogSections(type).flatMap { it.items }
+
+    suspend fun getCatalogSections(type: String = "movie"): List<ContentSection> {
+        val sections = mutableListOf<ContentSection>()
         getManifests().forEach { (baseUrl, manifest) ->
+            Log.d("StremioRepo", "Processing addon ${manifest.name}, catalogs=${manifest.catalogs.size}, type filter=$type")
             manifest.catalogs
                 .filter { it.type == type }
                 .forEach { cat ->
+                    Log.d("StremioRepo", "Loading catalog ${cat.id} (${cat.name}) type=${cat.type} supportsSkip=${cat.supportsSkip}")
                     try {
-                        val resp = stremioApi.getCatalog(catalogUrl(baseUrl, type, cat.id))
-                        items += resp.metas.map { it.toMediaItem() }
-                    } catch (_: Exception) {}
+                        // Use skip=0 only when the catalog declares skip support — some addons
+                        // reject the extra-param path format and return 404 otherwise
+                        val url = catalogUrl(baseUrl, type, cat.id, skipParam = cat.supportsSkip)
+                        Log.d("StremioRepo", "Fetching: $url")
+                        var resp = stremioApi.getCatalog(url)
+                        // Some addons require skip=0 even when not declared — retry with it
+                        if (resp.metas.isEmpty() && !cat.supportsSkip) {
+                            val retryUrl = catalogUrl(baseUrl, type, cat.id, skipParam = true)
+                            Log.d("StremioRepo", "Empty, retrying with skip=0: $retryUrl")
+                            resp = runCatching { stremioApi.getCatalog(retryUrl) }.getOrDefault(resp)
+                        }
+                        val items = resp.metas.map { it.toMediaItem() }
+                        Log.d("StremioRepo", "Got ${items.size} items for ${cat.id}")
+                        if (items.isNotEmpty()) {
+                            sections += ContentSection(
+                                title = cat.name ?: manifest.name,
+                                items = items,
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e("StremioRepo", "Catalog ${cat.id} failed: ${e.message}")
+                    }
                 }
         }
-        return items
+        Log.d("StremioRepo", "getCatalogSections($type) → ${sections.size} sections")
+        return sections
+    }
+
+    suspend fun search(query: String): List<MediaItem> {
+        val items = mutableListOf<MediaItem>()
+        getManifests().forEach { (baseUrl, manifest) ->
+            listOf("movie", "series").forEach { type ->
+                manifest.catalogs
+                    .filter { it.type == type && it.supportsSearch }
+                    .forEach { cat ->
+                        try {
+                            val resp = stremioApi.getCatalog(searchUrl(baseUrl, type, cat.id, query))
+                            items += resp.metas.map { it.toMediaItem() }
+                        } catch (_: Exception) {}
+                    }
+            }
+        }
+        // Fall back to local filter across the full catalog if no addon supports search
+        if (items.isEmpty()) {
+            listOf("movie", "series").forEach { type ->
+                items += getCatalog(type).filter { it.name.contains(query, ignoreCase = true) }
+            }
+        }
+        return items.distinctBy { it.id }
     }
 
     suspend fun getMeta(type: String, id: String): StremioMeta? {

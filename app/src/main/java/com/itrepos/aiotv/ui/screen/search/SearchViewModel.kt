@@ -51,9 +51,17 @@ class SearchViewModel @Inject constructor(
 
     private suspend fun search(query: String) {
         _state.value = _state.value.copy(isSearching = true)
-        val movies = getCatalog("movie").filter { it.name.contains(query, ignoreCase = true) }
-        val channels = getChannels().filter { it.name.contains(query, ignoreCase = true) }
-        _state.value = _state.value.copy(isSearching = false, mediaResults = movies, channelResults = channels)
+        // Search Stremio addons (movies + series via search endpoint or local filter)
+        val media = try { getCatalog.search(query) } catch (_: Exception) { emptyList() }
+        // Search channels locally by name
+        val channels = try {
+            getChannels().filter { it.name.contains(query, ignoreCase = true) }
+        } catch (_: Exception) { emptyList() }
+        _state.value = _state.value.copy(
+            isSearching = false,
+            mediaResults = media,
+            channelResults = channels,
+        )
     }
 
     private fun clearResults() {

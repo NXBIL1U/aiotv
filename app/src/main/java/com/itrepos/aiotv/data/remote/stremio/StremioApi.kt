@@ -17,8 +17,16 @@ interface StremioApi {
     suspend fun getStreams(@Url url: String): StremioStreamResponse
 }
 
-fun catalogUrl(baseUrl: String, type: String, id: String) =
-    "${baseUrl.trimEnd('/')}/catalog/$type/$id.json"
+// skipParam=true appends /skip=0 as an extra — required by some addons (e.g. Netflix catalog)
+// but breaks others that don't support extra params
+fun catalogUrl(baseUrl: String, type: String, id: String, skipParam: Boolean = false) =
+    if (skipParam) "${baseUrl.trimEnd('/')}/catalog/$type/$id/skip=0.json"
+    else "${baseUrl.trimEnd('/')}/catalog/$type/$id.json"
+
+fun searchUrl(baseUrl: String, type: String, id: String, query: String): String {
+    val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+    return "${baseUrl.trimEnd('/')}/catalog/$type/$id/search=$encoded.json"
+}
 
 fun metaUrl(baseUrl: String, type: String, id: String) =
     "${baseUrl.trimEnd('/')}/meta/$type/$id.json"

@@ -1,5 +1,6 @@
 package com.itrepos.aiotv.ui.screen.player
 
+import android.app.Activity
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -20,32 +22,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import com.itrepos.aiotv.ui.screen.mirror.MirrorViewModel
+import com.itrepos.aiotv.ui.screen.mirror.NowPlaying
 import kotlinx.coroutines.delay
 
 @OptIn(UnstableApi::class)
@@ -56,100 +48,53 @@ fun PlayerScreen(
     isTv: Boolean,
     onBack: () -> Unit,
     viewModel: PlayerViewModel = hiltViewModel(),
+    mirrorViewModel: MirrorViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var errorMsg by remember { mutableStateOf<String?>(null) }
-    var isBuffering by remember { mutableStateOf(true) }
+    val playbackManager = viewModel.playbackManager
+    val playbackState by playbackManager.state.collectAsState()
 
-    val exoPlayer = remember {
-        // Many IPTV / Xtream / VOD servers reject the default ExoPlayer User-Agent
-        // and frequently 302 between http/https, so we present a VLC-like UA and
-        // allow cross-protocol redirects — this is what makes most streams play.
-        val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("VLC/3.0.20 LibVLC/3.0.20")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(30_000)
-            .setReadTimeoutMs(30_000)
-        val dataSourceFactory = DefaultDataSource.Factory(context, httpFactory)
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-            .build()
-
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
-            .setHandleAudioBecomingNoisy(true)
-            .build()
-            .apply { setWakeMode(C.WAKE_MODE_NETWORK) }
-    }
-
-    // Surface playback errors and buffering state instead of a silent black screen.
-    DisposableEffect(exoPlayer) {
-        val listener = object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) {
-                errorMsg = error.localizedMessage ?: error.errorCodeName
-                isBuffering = false
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                isBuffering = playbackState == Player.STATE_BUFFERING
-                if (playbackState == Player.STATE_READY) errorMsg = null
+    // Immersive fullscreen — hides status bar and nav bar while the player is shown
+    DisposableEffect(Unit) {
+        val activity = context as? Activity
+        val window = activity?.window
+        val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
+        controller?.let {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            it.hide(WindowInsetsCompat.Type.systemBars())
+            it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+        onDispose {
+            controller?.let {
+                it.show(WindowInsetsCompat.Type.systemBars())
+                WindowCompat.setDecorFitsSystemWindows(window, true)
             }
         }
-        exoPlayer.addListener(listener)
-        onDispose { exoPlayer.removeListener(listener) }
     }
 
-    // Set the media item, hinting the container type (extension-less IPTV/redirect
-    // URLs otherwise get misdetected as progressive), and resume from saved position.
     LaunchedEffect(url) {
-        val mime = when {
-            url.contains(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
-            url.contains(".mpd", ignoreCase = true) -> MimeTypes.APPLICATION_MPD
-            else -> null
-        }
-        val startPositionMs = viewModel.getStartPosition(url)
-        val mediaItem = MediaItem.Builder()
-            .setUri(url)
-            .apply { mime?.let { setMimeType(it) } }
-            .build()
-        exoPlayer.setMediaItem(mediaItem, startPositionMs)
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
+        val startPos = viewModel.getStartPosition(url)
+        playbackManager.load(url, title, startPos)
+        NowPlaying.update(url, title)
     }
 
-    // Periodically persist watch progress.
-    LaunchedEffect(exoPlayer) {
+    // Periodically persist watch progress
+    LaunchedEffect(url) {
         while (true) {
             delay(5_000)
-            val pos = exoPlayer.currentPosition
-            val dur = exoPlayer.duration.takeIf { it > 0 } ?: 0L
+            val pos = playbackManager.player.currentPosition
+            val dur = playbackManager.player.duration.takeIf { it > 0 } ?: 0L
             if (pos > 0) viewModel.saveProgress(url, pos, dur)
         }
-    }
-
-    // Pause when the app is backgrounded (HOME / recents) so audio doesn't keep
-    // playing and the codec/surface isn't held.
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_STOP -> exoPlayer.pause()
-                Lifecycle.Event.ON_START -> exoPlayer.play()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            val pos = exoPlayer.currentPosition
-            val dur = exoPlayer.duration.takeIf { it > 0 } ?: 0L
+            val pos = playbackManager.player.currentPosition
+            val dur = playbackManager.player.duration.takeIf { it > 0 } ?: 0L
             if (pos > 0) viewModel.saveProgress(url, pos, dur)
-            exoPlayer.release()
+            // Do NOT release the player — it keeps playing in background
+            // NowPlaying stays set so the mini player bar remains visible
         }
     }
 
@@ -159,7 +104,7 @@ fun PlayerScreen(
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
-                    player = exoPlayer
+                    player = playbackManager.player
                     useController = true
                     keepScreenOn = true
                     layoutParams = ViewGroup.LayoutParams(
@@ -182,14 +127,21 @@ fun PlayerScreen(
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
         )
 
-        if (isBuffering && errorMsg == null) {
+        IconButton(
+            onClick = { mirrorViewModel.castStream(url, title) },
+            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+        ) {
+            Icon(Icons.Default.Cast, contentDescription = "Cast to Tesla", tint = Color.White)
+        }
+
+        if (playbackState.isBuffering && playbackState.error == null) {
             CircularProgressIndicator(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
 
-        errorMsg?.let { msg ->
+        playbackState.error?.let { msg ->
             Column(
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -201,10 +153,7 @@ fun PlayerScreen(
                     color = Color.Red,
                 )
                 Button(onClick = {
-                    errorMsg = null
-                    isBuffering = true
-                    exoPlayer.prepare()
-                    exoPlayer.playWhenReady = true
+                    playbackManager.load(url, title)
                 }) {
                     Text("Retry")
                 }

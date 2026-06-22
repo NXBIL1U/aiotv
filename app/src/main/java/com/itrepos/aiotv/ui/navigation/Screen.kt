@@ -3,9 +3,9 @@ package com.itrepos.aiotv.ui.navigation
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Search : Screen("search")
-    object Guide : Screen("guide")
+    object Movies : Screen("catalog/movie")
+    object Series : Screen("catalog/series")
     object Live : Screen("live")
-    object Watchlist : Screen("watchlist")
     object Addons : Screen("addons")
     object Settings : Screen("settings")
     object Player : Screen("player/{url}/{title}") {
@@ -15,4 +15,5 @@ sealed class Screen(val route: String) {
     object Detail : Screen("detail/{type}/{id}") {
         fun createRoute(type: String, id: String) = "detail/$type/$id"
     }
+    object Mirror : Screen("mirror")
 }

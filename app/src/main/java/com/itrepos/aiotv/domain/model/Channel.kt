@@ -1,5 +1,8 @@
 package com.itrepos.aiotv.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Channel(
     val id: String,
     val name: String,

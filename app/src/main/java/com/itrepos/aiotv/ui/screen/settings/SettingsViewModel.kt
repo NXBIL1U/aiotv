@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.itrepos.aiotv.data.local.AppDataStore
 import com.itrepos.aiotv.data.repository.IptvRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,7 +95,22 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isFetchingGroups = true)
             val groups = iptvRepository.fetchGroupNames()
-            _state.value = _state.value.copy(availableGroups = groups, isFetchingGroups = false)
+            val currentFilter = _state.value.enabledGroups
+            // If no saved filter yet, default to all groups checked (all visible)
+            val enabled = if (currentFilter.isEmpty()) groups.toSet() else currentFilter
+            _state.value = _state.value.copy(availableGroups = groups, enabledGroups = enabled, isFetchingGroups = false)
+            if (currentFilter.isEmpty()) store.setChannelGroupFilter(enabled)
+        }
+    }
+
+    private var applyFilterJob: Job? = null
+
+    private fun scheduleFilterApply(groups: Set<String>) {
+        applyFilterJob?.cancel()
+        applyFilterJob = viewModelScope.launch {
+            delay(1500)
+            store.setChannelGroupFilter(groups)
+            iptvRepository.clearCache()
         }
     }
 
@@ -101,20 +118,17 @@ class SettingsViewModel @Inject constructor(
         val current = _state.value.enabledGroups.toMutableSet()
         if (enabled) current += group else current -= group
         _state.value = _state.value.copy(enabledGroups = current)
-        viewModelScope.launch { store.setChannelGroupFilter(current) }
-        iptvRepository.clearCache()
+        scheduleFilterApply(current)
     }
 
     fun selectAllGroups() {
         val all = _state.value.availableGroups.toSet()
         _state.value = _state.value.copy(enabledGroups = all)
-        viewModelScope.launch { store.setChannelGroupFilter(all) }
-        iptvRepository.clearCache()
+        scheduleFilterApply(all)
     }
 
     fun clearGroupFilter() {
         _state.value = _state.value.copy(enabledGroups = emptySet())
-        viewModelScope.launch { store.setChannelGroupFilter(emptySet()) }
-        iptvRepository.clearCache()
+        scheduleFilterApply(emptySet())
     }
 }

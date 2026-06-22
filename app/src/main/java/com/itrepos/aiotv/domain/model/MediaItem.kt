@@ -7,7 +7,7 @@ data class MediaItem(
     val description: String?,
     val posterUrl: String?,
     val backdropUrl: String?,
-    val year: Int?,
+    val year: String?,
     val genres: List<String> = emptyList(),
     val imdbRating: String? = null,
 )

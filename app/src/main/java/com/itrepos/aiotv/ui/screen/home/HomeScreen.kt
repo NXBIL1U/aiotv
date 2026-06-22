@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.R
+import com.itrepos.aiotv.domain.model.ContentSection
 import com.itrepos.aiotv.ui.components.ContentRail
 import com.itrepos.aiotv.ui.components.HeroSection
 import com.itrepos.aiotv.ui.components.MediaCard
@@ -33,7 +34,6 @@ import com.itrepos.aiotv.ui.components.SideNavRail
 import com.itrepos.aiotv.ui.components.TvNavRail
 import com.itrepos.aiotv.ui.navigation.Screen
 
-// TV overscan-safe margins so edge content isn't cropped by the display bezel.
 private val TvOverscanH = 48.dp
 private val TvOverscanV = 27.dp
 
@@ -75,8 +75,7 @@ private fun TvHomeLayout(
             firstCardFocus = firstCardFocus,
         )
     }
-    // Land D-pad focus on the first content card once data is available.
-    LaunchedEffect(state.isLoading, state.movies.size, state.liveChannels.size) {
+    LaunchedEffect(state.isLoading, state.movieSections.size, state.liveGroups.size) {
         if (!state.isLoading) runCatching { firstCardFocus.requestFocus() }
     }
 }
@@ -113,35 +112,26 @@ private fun HomeContent(
     modifier: Modifier = Modifier,
     firstCardFocus: FocusRequester? = null,
 ) {
-    // Only the first visible rail's first card gets the focus requester.
-    val firstRail = when {
-        state.continueWatching.isNotEmpty() -> "cw"
-        state.liveChannels.isNotEmpty() -> "live"
-        state.movies.isNotEmpty() -> "movies"
-        state.series.isNotEmpty() -> "series"
-        else -> null
-    }
-    fun focusMod(isFirst: Boolean): Modifier =
-        if (isFirst && firstCardFocus != null) Modifier.focusRequester(firstCardFocus) else Modifier
+    val hasContent = state.movieSections.isNotEmpty() || state.seriesSections.isNotEmpty() ||
+        state.liveGroups.isNotEmpty() || state.continueWatching.isNotEmpty()
 
     when {
         state.isLoading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        state.movies.isEmpty() && state.liveChannels.isEmpty() && state.continueWatching.isEmpty() -> {
-            Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = stringResource(R.string.empty_no_source),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(24.dp),
-                )
-            }
+        !hasContent -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.empty_no_source),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(24.dp),
+            )
         }
         else -> LazyColumn(modifier.fillMaxSize()) {
             item(key = "hero") {
                 HeroSection(item = state.featuredItem, modifier = Modifier.fillMaxWidth())
             }
+
             if (state.continueWatching.isNotEmpty()) {
                 item(key = "rail_cw") {
                     ContentRail(
@@ -154,71 +144,101 @@ private fun HomeContent(
                             imageUrl = null,
                             aspectRatio = 16f / 9f,
                             progress = progress.fraction,
-                            modifier = focusMod(firstRail == "cw" && progress == state.continueWatching.first()),
-                            onClick = {
-                                onNavigate(Screen.Player.createRoute(progress.id, "Resume"))
-                            },
+                            modifier = if (firstCardFocus != null && progress == state.continueWatching.first())
+                                Modifier.focusRequester(firstCardFocus) else Modifier,
+                            onClick = { onNavigate(Screen.Player.createRoute(progress.id, "Resume")) },
                         )
                     }
                 }
             }
-            if (state.liveChannels.isNotEmpty()) {
-                item(key = "rail_live") {
+
+            // Live TV groups rail (capped at 8 to keep the home page tidy)
+            if (state.liveGroups.isNotEmpty()) {
+                item(key = "rail_live_groups") {
                     ContentRail(
                         title = stringResource(R.string.live_now),
-                        items = state.liveChannels,
-                        key = { it.id },
-                    ) { channel ->
+                        items = state.liveGroups.take(8),
+                        key = { it },
+                    ) { group ->
                         MediaCard(
-                            title = channel.name,
-                            imageUrl = channel.logoUrl,
+                            title = group,
+                            imageUrl = null,
                             aspectRatio = 16f / 9f,
-                            modifier = focusMod(firstRail == "live" && channel == state.liveChannels.first()),
-                            onClick = {
-                                onNavigate(Screen.Player.createRoute(channel.streamUrl, channel.name))
-                            },
+                            onClick = { onNavigate(Screen.Live.route) },
                         )
                     }
                 }
             }
-            if (state.movies.isNotEmpty()) {
-                val movies = state.movies.take(20)
-                item(key = "rail_movies") {
-                    ContentRail(
-                        title = stringResource(R.string.top_picks),
-                        items = movies,
-                        key = { it.id },
-                    ) { item ->
-                        MediaCard(
-                            title = item.name,
-                            imageUrl = item.posterUrl,
-                            modifier = focusMod(firstRail == "movies" && item == movies.first()),
-                            onClick = {
-                                onNavigate(Screen.Detail.createRoute(item.type, item.id))
-                            },
-                        )
-                    }
+
+            // Movies header
+            if (state.movieSections.isNotEmpty()) {
+                item(key = "header_movies") {
+                    Text(
+                        text = "Movies",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
                 }
             }
-            if (state.series.isNotEmpty()) {
-                val series = state.series.take(20)
-                item(key = "rail_series") {
-                    ContentRail(
-                        title = stringResource(R.string.series),
-                        items = series,
-                        key = { it.id },
-                    ) { item ->
-                        MediaCard(
-                            title = item.name,
-                            imageUrl = item.posterUrl,
-                            modifier = focusMod(firstRail == "series" && item == series.first()),
-                            onClick = {
-                                onNavigate(Screen.Detail.createRoute(item.type, item.id))
-                            },
-                        )
-                    }
+            // Movie sections — one rail per catalog source (Netflix, Prime, etc.)
+            state.movieSections.forEachIndexed { idx, section ->
+                item(key = "rail_movies_$idx") {
+                    CatalogSectionRail(
+                        section = section,
+                        focusFirst = firstCardFocus != null && state.continueWatching.isEmpty() &&
+                            state.liveGroups.isEmpty() && idx == 0,
+                        firstCardFocus = firstCardFocus,
+                        onNavigate = onNavigate,
+                    )
+                }
+            }
+
+            // Series header
+            if (state.seriesSections.isNotEmpty()) {
+                item(key = "header_series") {
+                    Text(
+                        text = "Series",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                }
+            }
+            // Series sections — one rail per catalog source
+            state.seriesSections.forEachIndexed { idx, section ->
+                item(key = "rail_series_$idx") {
+                    CatalogSectionRail(
+                        section = section,
+                        focusFirst = false,
+                        firstCardFocus = null,
+                        onNavigate = onNavigate,
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CatalogSectionRail(
+    section: ContentSection,
+    focusFirst: Boolean,
+    firstCardFocus: FocusRequester?,
+    onNavigate: (String) -> Unit,
+) {
+    val items = section.items.take(20)
+    ContentRail(
+        title = section.title,
+        items = items,
+        key = { it.id },
+    ) { item ->
+        MediaCard(
+            title = item.name,
+            imageUrl = item.posterUrl,
+            modifier = if (focusFirst && firstCardFocus != null && item == items.first())
+                Modifier.focusRequester(firstCardFocus) else Modifier,
+            onClick = { onNavigate(Screen.Detail.createRoute(item.type, item.id)) },
+        )
     }
 }

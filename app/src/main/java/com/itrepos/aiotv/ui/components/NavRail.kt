@@ -23,12 +23,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -61,9 +62,10 @@ data class NavItem(
 val navItems = listOf(
     NavItem(Screen.Home, R.string.nav_home, Icons.Default.Home),
     NavItem(Screen.Search, R.string.nav_search, Icons.Default.Search),
-    NavItem(Screen.Guide, R.string.nav_guide, Icons.Default.VideoLibrary),
+    NavItem(Screen.Movies, R.string.nav_movies, Icons.Default.Movie),
+    NavItem(Screen.Series, R.string.nav_series, Icons.Default.Tv),
     NavItem(Screen.Live, R.string.nav_live, Icons.Default.LiveTv),
-    NavItem(Screen.Watchlist, R.string.nav_watchlist, Icons.Default.Bookmarks),
+    NavItem(Screen.Mirror, R.string.nav_mirror, Icons.Default.Cast),
     NavItem(Screen.Addons, R.string.nav_addons, Icons.Default.Apps),
     NavItem(Screen.Settings, R.string.nav_settings, Icons.Default.Settings),
 )

@@ -4,4 +4,9 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class AioTvApp : Application()
+class AioTvApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        com.itrepos.aiotv.util.CrashLogger.install(this)
+    }
+}
