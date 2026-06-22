@@ -57,7 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.itrepos.aiotv.domain.model.Channel
-import com.itrepos.aiotv.domain.model.ChannelCategory
 import com.itrepos.aiotv.ui.components.FocusableCard
 import com.itrepos.aiotv.ui.theme.AccentPrimary
 import com.itrepos.aiotv.ui.theme.SurfaceCard
@@ -68,7 +67,7 @@ import kotlinx.coroutines.delay
 private val TV_OVERSCAN_H = 48.dp
 private val TV_OVERSCAN_V = 27.dp
 
-// Labels for the region tags displayed in the Region control chip.
+// Short labels for the region caption shown below the category trigger.
 private val REGION_LABELS = mapOf(
     "US"    to "US",
     "UK"    to "UK",
@@ -87,8 +86,7 @@ fun LiveTvScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    // Picker visibility state
-    var showRegionPicker by remember { mutableStateOf(false) }
+    // Only the category picker is shown on the landing; region is now in Settings.
     var showCategoryPicker by remember { mutableStateOf(false) }
 
     if (state.isLoading) {
@@ -141,27 +139,27 @@ fun LiveTvScreen(
             state.favCategories.map { it.id }.toSet()
         }
 
-        // Derive the label for the current category selection button.
+        // Label for the single Sky-style category trigger: "All Channels" or the category name.
         val categoryLabel = remember(state.selectedCategoryId, state.categories) {
             when (state.selectedCategoryId) {
-                ALL_CATEGORY_ID -> "Categories"
+                ALL_CATEGORY_ID -> "All Channels"
                 else -> state.categories.find { it.id == state.selectedCategoryId }?.name
-                    ?: "Categories"
+                    ?: "All Channels"
             }
         }
 
-        // Label for the region control chip: "UK · US" (up to 3, then "+N more").
-        val regionLabel = remember(state.selectedRegions) {
+        // Non-interactive region caption: "UK · US · EN" (up to 4, then "+N more").
+        val regionCaption = remember(state.selectedRegions) {
             val sorted = state.selectedRegions.mapNotNull { REGION_LABELS[it] }.sorted()
             when {
-                sorted.isEmpty() -> "Regions"
-                sorted.size <= 3 -> sorted.joinToString(" · ")
-                else -> "${sorted.take(3).joinToString(" · ")} +${sorted.size - 3}"
+                sorted.isEmpty() -> ""
+                sorted.size <= 4 -> sorted.joinToString(" · ")
+                else -> "${sorted.take(4).joinToString(" · ")} +${sorted.size - 4}"
             }
         }
 
         if (wide) {
-            // ── Wide layout: left rail with region + category + fav-categories; right = content ──
+            // ── Wide layout: left rail with Sky-style category trigger + fav-categories ──
             Row(Modifier.fillMaxSize()) {
                 Column(
                     Modifier
@@ -171,19 +169,28 @@ fun LiveTvScreen(
                         .padding(horizontal = 8.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // Region control
+                    // Sky-style single category trigger: "All Channels ▾" or "<Category> ▾"
                     AssistChip(
-                        onClick = { showRegionPicker = true },
-                        label = { Text(regionLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        onClick = { showCategoryPicker = true },
+                        label = { Text(categoryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         trailingIcon = {
                             Icon(
                                 Icons.Filled.KeyboardArrowDown,
-                                contentDescription = "Open region picker",
+                                contentDescription = "Open category picker",
                                 modifier = Modifier.size(AssistChipDefaults.IconSize),
                             )
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    // Non-interactive region caption — scope reminder; change regions in Settings.
+                    if (regionCaption.isNotEmpty()) {
+                        Text(
+                            regionCaption,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                    }
 
                     // Favourite category quick chips
                     if (state.favCategories.isNotEmpty()) {
@@ -214,18 +221,6 @@ fun LiveTvScreen(
                         }
                         Spacer(Modifier.height(4.dp))
                     }
-
-                    // "All categories" + categories button
-                    TextButton(
-                        onClick = { showCategoryPicker = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            categoryLabel,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
 
                 // Right pane: search + content
@@ -250,44 +245,40 @@ fun LiveTvScreen(
                 }
             }
         } else {
-            // ── Phone layout: vertical column ──
+            // ── Phone layout: search → single Sky-style category trigger → content ──
             Column(Modifier.fillMaxSize()) {
-                // Top bar: search + region chip + categories button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SearchField(
-                        query = state.query,
-                        onQueryChange = viewModel::setQuery,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                // Search field (primary control)
+                SearchField(
+                    query = state.query,
+                    onQueryChange = viewModel::setQuery,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
 
+                // Single category trigger: "All Channels ▾" or "<Category> ▾"
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 0.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AssistChip(
-                        onClick = { showRegionPicker = true },
-                        label = { Text(regionLabel, maxLines = 1) },
+                        onClick = { showCategoryPicker = true },
+                        label = { Text(categoryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         trailingIcon = {
                             Icon(
                                 Icons.Filled.KeyboardArrowDown,
-                                contentDescription = "Open region picker",
+                                contentDescription = "Open category picker",
                                 modifier = Modifier.size(AssistChipDefaults.IconSize),
                             )
                         },
                     )
-                    TextButton(onClick = { showCategoryPicker = true }) {
+                    // Non-interactive region caption — scope reminder; change regions in Settings.
+                    if (regionCaption.isNotEmpty()) {
                         Text(
-                            categoryLabel,
+                            regionCaption,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -306,17 +297,7 @@ fun LiveTvScreen(
         }
 
         // ── Pickers (shown as ModalBottomSheets over the content) ──
-        if (showRegionPicker) {
-            RegionPicker(
-                selectedRegions = state.selectedRegions,
-                onConfirm = { regions ->
-                    viewModel.setRegions(regions)
-                    showRegionPicker = false
-                },
-                onDismiss = { showRegionPicker = false },
-            )
-        }
-
+        // Note: Region selection is now in Settings; only the category picker remains here.
         if (showCategoryPicker) {
             CategoryPicker(
                 categories = state.categories,
