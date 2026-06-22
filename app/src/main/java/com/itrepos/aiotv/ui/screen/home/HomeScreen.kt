@@ -76,7 +76,7 @@ private fun TvHomeLayout(
         )
     }
     // Land D-pad focus on the first content card once data is available.
-    LaunchedEffect(state.isLoading, state.movies.size, state.liveChannels.size) {
+    LaunchedEffect(state.isLoading, state.movies.size) {
         if (!state.isLoading) runCatching { firstCardFocus.requestFocus() }
     }
 }
@@ -116,7 +116,6 @@ private fun HomeContent(
     // Only the first visible rail's first card gets the focus requester.
     val firstRail = when {
         state.continueWatching.isNotEmpty() -> "cw"
-        state.liveChannels.isNotEmpty() -> "live"
         state.movies.isNotEmpty() -> "movies"
         state.series.isNotEmpty() -> "series"
         else -> null
@@ -128,7 +127,7 @@ private fun HomeContent(
         state.isLoading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        state.movies.isEmpty() && state.liveChannels.isEmpty() && state.continueWatching.isEmpty() -> {
+        state.movies.isEmpty() && state.series.isEmpty() && state.continueWatching.isEmpty() -> {
             Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(R.string.empty_no_source),
@@ -162,25 +161,6 @@ private fun HomeContent(
                                 } else {
                                     onNavigate(Screen.Player.createRoute(pid, "Resume"))
                                 }
-                            },
-                        )
-                    }
-                }
-            }
-            if (state.liveChannels.isNotEmpty()) {
-                item(key = "rail_live") {
-                    ContentRail(
-                        title = stringResource(R.string.live_now),
-                        items = state.liveChannels,
-                        key = { it.id },
-                    ) { channel ->
-                        MediaCard(
-                            title = channel.name,
-                            imageUrl = channel.logoUrl,
-                            aspectRatio = 16f / 9f,
-                            modifier = focusMod(firstRail == "live" && channel == state.liveChannels.first()),
-                            onClick = {
-                                onNavigate(Screen.Player.createRoute(channel.streamUrl, channel.name))
                             },
                         )
                     }
