@@ -150,6 +150,10 @@ player listener.
 - **Detail:** **auto-select + one-tap play** (no manual stream list) — see §6a. Movies: Play/
   Resume. Series: season selector + episode list with thumbnails. Discreet "Sources/quality"
   override is hidden by default.
+- **App shell & identity (planned, see `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`):**
+  a **persistent Netflix-style nav shell** (NavigationSuiteScaffold on phone/foldable + `androidx.tv`
+  NavigationDrawer on TV; immersive on player/Detail), a **dark + Netflix-red** palette (tonal red
+  for interactive per a11y; raw `#E50914` for brand), and a **wordless distinctive app icon**.
 - **Live/EPG:** time-grid guide navigable by D-pad and touch; now/next; channel groups &
   favourites; catch-up where the provider supports it.
 - **Search:** instant results across VOD + channels; voice on TV; recent searches.

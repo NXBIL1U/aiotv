@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Concept D: "stacked streams" — 3 angled bars in graded reds. All-in-one / many sources, one app. Not a play/TV. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#141017"/><stop offset="1" stop-color="#0B0B0F"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <g transform="rotate(-22 512 512)">
+    <rect x="278" y="372" width="360" height="78" rx="39" fill="#7A0A10"/>
+    <rect x="278" y="473" width="468" height="78" rx="39" fill="#E50914"/>
+    <rect x="278" y="574" width="360" height="78" rx="39" fill="#FF5A5F"/>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Concept C: "all-in-one signal" — play triangle with two broadcast arcs, on dark. Wordless, abstract. -->
+  <rect width="1024" height="1024" rx="224" fill="#0B0B0F"/>
+  <!-- play triangle -->
+  <path d="M430 360 L430 664 L700 512 Z" fill="#E50914"/>
+  <!-- broadcast arcs (top-left), echoing 'streaming' -->
+  <path d="M360 392 A 150 150 0 0 0 360 632" fill="none" stroke="#E50914" stroke-width="40" stroke-linecap="round" opacity="0.9"/>
+  <path d="M300 340 A 230 230 0 0 0 300 684" fill="none" stroke="#E50914" stroke-width="40" stroke-linecap="round" opacity="0.55"/>
+</svg>

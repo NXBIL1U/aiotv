@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Concept E: "signal burst" — bright core + radiating rays. Energy / broadcast / all-in-one. Not a play/TV. -->
+  <rect width="1024" height="1024" rx="224" fill="#0B0B0F"/>
+  <g stroke-linecap="round" fill="none">
+    <g stroke="#E50914" stroke-width="56">
+      <line x1="512" y1="512" x2="512" y2="250"/>
+      <line x1="512" y1="512" x2="742" y2="382"/>
+      <line x1="512" y1="512" x2="742" y2="642"/>
+      <line x1="512" y1="512" x2="512" y2="774"/>
+      <line x1="512" y1="512" x2="282" y2="642"/>
+      <line x1="512" y1="512" x2="282" y2="382"/>
+    </g>
+  </g>
+  <circle cx="512" cy="512" r="96" fill="#0B0B0F"/>
+  <circle cx="512" cy="512" r="78" fill="#FF5A5F"/>
+</svg>

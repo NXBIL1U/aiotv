@@ -152,6 +152,15 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       cache) and only clears `isLoading` once all rails finish. Fix: drop the channel load from
       Home + let each rail fill independently. Needs a brainstorm: how "networks" map to the
       configured Stremio addon catalogs (one row per catalog? grouped?). See DESIGN §8.
+- [ ] `[P4]` **App-wide Netflix-style navigation + visual refresh** (workstream, web-validated). Three
+      parts: (A) **dark + Netflix-red theme** replacing the blue — but per a11y, interactive accents
+      use the Material-Theme-Builder tonal red, raw `#E50914` only on brand surfaces; (B) a **wordless,
+      distinctive app icon** (concepts in `docs/superpowers/icon-concepts/`, lean "stacked streams");
+      (C) a **persistent nav shell** — `NavigationSuiteScaffold` (phone/foldable) + `androidx.tv`
+      `NavigationDrawer` (TV), hiding on player/Detail (immersive), moving chrome out of `HomeScreen`.
+      Adopt a Compose icon pack (Lucide/Tabler) for in-app icons. Spec:
+      `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`. Theme + icon are quick wins;
+      nav shell is its own effort. _(noted 2026-06-22)_
 
 ## 🧹 Data-layer hardening
 
