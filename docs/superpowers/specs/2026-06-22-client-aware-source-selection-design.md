@@ -24,9 +24,10 @@ for the client we're watching from").
 **Goals:**
 - Movies auto-play the best source (reuse the series engine); the **Sources sheet stays** as a manual override
   (a button on Detail + the automatic fallback when nothing resolves).
-- A **device-tier-adaptive** ranker: per-device ceiling from real capability, then highest quality under the
-  ceiling, then streamability (avoid REMUX bloat), then reliability (cached, seeders), keeping English preference.
-- A reusable `DeviceCapabilities` probe (codecs, max resolution, HDR, device tier).
+- A **capability-filtered, size-capped** ranker: drop what the device can't decode/display, **hard 20 GB cap**,
+  then highest quality at/under target, then within-resolution streamability, then reliability (cached, seeders),
+  keeping English preference.
+- A reusable `DeviceCapabilities` probe (decodable codecs, max resolution, HDR).
 - Richer release parsing (codec / HDR / source type) feeding the ranker.
 
 **Goal addition — candidate-list composition (folded in, owner-requested):** the owner's Torrentio addon is
@@ -38,8 +39,9 @@ the Torrentio request `limit`** at request time (see §4 `StreamRequestTuning`);
 real choices. Raising `limit` is **necessary and sufficient** — no `sort` change (and no token-guessing) needed.
 
 **Non-goals (v1):**
-- **Real network-bandwidth measurement.** We infer network tolerance from **device tier** (TV ⇒ assume strong/
-  wired; handheld ⇒ assume variable). No active throughput probing in v1.
+- **Real network-bandwidth measurement.** No active throughput probing in v1. The **flat 20 GB cap** is our
+  streamability guardrail instead — it bounds bitrate enough to stream on a normal home connection regardless of
+  device, and anything heavier is a deliberate manual pick.
 - **Per-stream track UI / quality switching mid-play** — that's the (separate) track-selection work.
 - **Live IPTV** path — untouched (no candidate list; single URL).
 
@@ -66,48 +68,57 @@ is build-not-adopt.
 | `StremioRepository.getStreams` (modify) | Build the stream request from the **tuned** base: `streamUrl(tuneStreamBase(baseUrl), type, id)`. Manifest/catalog/meta requests unchanged (`limit` only affects stream lists). `toStream()` also fills the new `codec`/`hdr`/`source` fields (it already aggregates `name+title+filename` into `detectText`). |
 | `StreamParsing.kt` (modify) | Add `codec(text): Codec`, `hdr(text): Hdr`, `sourceType(text): SourceType`. Regexes ported from parse-torrent-title (MIT). Existing `quality`/`seeders`/`sizeBytes`/`languageScore`/`isTbCached` unchanged. |
 | `Stream.kt` (modify) | Add `codec: Codec = UNKNOWN`, `hdr: Hdr = UNKNOWN`, `source: SourceType = UNKNOWN`. Add enums `Codec { AVC, HEVC, AV1, UNKNOWN }`, `Hdr { SDR, HDR10, DOLBY_VISION, UNKNOWN }`, `SourceType { REMUX, BLURAY, WEBDL, WEBRIP, HDTV, UNKNOWN }`. |
-| `DeviceCapabilities` (new, `@Singleton`, `domain/playback`) | Probes the device **once** and exposes a `DeviceProfile`. Codecs + max decode resolution via `MediaCodecList(REGULAR_CODECS)` / Media3 `MediaCodecUtil.getDecoderInfos(mime,…)`; screen resolution via `Display.getMode()`; HDR via `Display.getHdrCapabilities()`; tier via the existing `isTv` signal (`UiModeManager.UI_MODE_TYPE_TELEVISION`). |
-| `DeviceProfile` (data) | `maxResolution: Quality` (min of screen res and decodable res), `decodableCodecs: Set<Codec>`, `hdrCapable: Boolean`, `tier: DeviceTier { TV, HANDHELD }`. |
-| `StreamRanker.kt` (rewrite) | `rank(streams, profile: DeviceProfile, target: Quality): List<Stream>` — algorithm in §5. A `preferred`-only overload is kept for any non-VOD caller (delegates with a permissive profile) so nothing else breaks. |
+| `DeviceCapabilities` (new, `@Singleton`, `domain/playback`) | Probes the device **once** and exposes a `DeviceProfile`. Decodable codecs + max decode resolution via `MediaCodecList(REGULAR_CODECS)` / Media3 `MediaCodecUtil.getDecoderInfos(mime,…)`; screen resolution via `Display.getMode()`; HDR via `Display.getHdrCapabilities()`. **No device tier** — the flat size cap (§5) replaces TV-vs-handheld branching. |
+| `DeviceProfile` (data) | `maxResolution: Quality` = **min(max-decodable resolution, screen resolution)** (so a 1080p-screen phone targets 1080p — 4K on a 1080p panel is invisible + wasteful — while a 4K-screen phone/TV gets 4K), `decodableCodecs: Set<Codec>`, `hdrCapable: Boolean`. |
+| `StreamRanker.kt` (rewrite) | `rank(streams, profile: DeviceProfile, target: Quality): List<Stream>` — algorithm in §5 (hard 20 GB cap, decodable + resolution filter, then quality→streamability→reliability). A `preferred`-only overload is kept for any non-VOD caller (delegates with a permissive profile) so nothing else breaks. |
 | `PlaybackController.kt` (modify) | **Inject `DeviceCapabilities`.** Add `suspend startMovieAuto(candidates, title, progressId): Boolean` → `resolveFrom(candidates, 0)` then set a movie `PlaybackState` (`upNext = null`). Update `advanceToNextEpisode`'s internal `StreamRanker.rank(...)` call to pass the `DeviceProfile` + target so the next episode is device-aware too. The existing passive `startMovie(...)` (already-resolved URL, manual pick) stays for the Sources sheet. |
 | `DetailViewModel.kt` (modify) | `loadMovie`: rank with `DeviceProfile` + target, call `startMovieAuto`, and `onPlay(...)` on success; on failure fall back to the Sources sheet (mirrors `playEpisode`). `playEpisode`/`advanceToNextEpisode` pass the `DeviceProfile` too so series benefit. `AppDataStore.preferredQuality` default becomes device-aware (§5). |
-| `AppDataStore.kt` (modify) | `preferredQuality` default resolves to **4K on a 4K-capable TV tier, 1080p otherwise** (device-aware default; the user's explicit Settings choice still wins once set). |
+| `AppDataStore.kt` (modify) | `preferredQuality` default resolves to the device's **`maxResolution`** (screen-capable + decodable, capped at 4K) — so a 4K screen targets 4K, a 1080p screen targets 1080p, automatically. The user's explicit Settings choice still wins once set. |
 
 ## 5. Ranking policy
 
 ```
-ceiling = min(userTarget, profile.maxResolution)          // userTarget = preferredQuality setting
+SIZE_CAP_BYTES = 20 GB        // global hard cap, any resolution, any device (named constant)
+target = min(userTarget, profile.maxResolution)            // userTarget = preferredQuality setting
 
-streams
-  .filter { decodable(it.codec, profile) && it.quality.rank <= profile.maxResolution.rank }   // HARD FILTER
-  .sortedWith(
-      compareByDescending { it.isCached }                 // 1. cached debrid first (uncached = slow)
-      .thenByDescending    { it.languageScore }            // 2. English preference (existing)
-      .thenByDescending    { qualityFit(it, ceiling) }     // 3. highest quality at/under ceiling
-      .thenByDescending    { streamability(it, profile) }  // 4. tier-dependent bloat handling
-      .thenByDescending    { seederScore(it) }             // 5. healthy sources (1-seeder penalty)
-  )
+eligible = streams.filter {
+    decodable(it.codec, profile)                           // device has a decoder for the codec
+    && it.quality.rank <= profile.maxResolution.rank        // not above what device decodes/screen shows
+    && (it.sizeBytes == null || it.sizeBytes <= SIZE_CAP_BYTES)   // under 20 GB (unknown size kept)
+}
+if (eligible.isEmpty()) → caller falls back to the Sources sheet (manual pick — never auto-play a buffer-fest)
+
+eligible.sortedWith(
+    compareByDescending { it.isCached }                    // 1. cached debrid first (uncached = slow)
+    .thenByDescending   { it.languageScore }               // 2. English preference (existing)
+    .thenByDescending   { qualityFit(it, target) }         // 3. highest quality at/under target
+    .thenByDescending   { streamability(it) }              // 4. within a resolution, prefer smaller/sane bitrate
+    .thenByDescending   { seederScore(it) }                // 5. healthy sources (1-seeder penalty)
+)
 ```
 
+- **20 GB hard cap** — never auto-pick a source above it (kills REMUX, 24–34 GB, and absurd 4K everywhere).
+  Unknown-size sources are kept (we can't measure them). If **nothing** is under the cap, the ranker returns
+  empty and the caller shows the **Sources sheet** (§7) — we never auto-play a guaranteed buffer-fest.
 - **`decodable`** — `codec == UNKNOWN` (can't tell ⇒ keep) **or** `codec ∈ profile.decodableCodecs`. Drops a
   HEVC/AV1 source on a device with no such decoder (prevents the `NO_EXCEEDS_CAPABILITIES` hard-fail).
-- **`qualityFit`** — quality at/under the ceiling scores by `quality.rank`; over-ceiling is already filtered.
-- **`streamability` (tier-dependent — the §3-of-design crux). Since candidates are often *all* cached
-  (verified on "Her": 18/18 `[TB+]`), this — not cached-first — is what actually picks the smooth source:**
-  - Prefer a **sane bitrate band** for the resolution — penalise **both** REMUX/oversize bloat **and**
-    ultra-low-bitrate potatoes (e.g. a 1.8 GB "1080p"), so we land on a healthy encode (the ~6–13 GB 1080p
-    range here), not merely the smallest file. (Bands + penalty magnitudes fixed in the plan, unit-tested.)
-  - **HANDHELD:** strong bloat demotion — a 1080p REMUX is demoted so a clean WEB-DL/encode of the same (or even
-    one-lower) resolution outranks it. This is what stops a phone auto-picking the 24 GB REMUX.
-  - **TV:** REMUX/4K acceptable (assumed strong network) — only a mild size tiebreak applies, so the
-    highest-quality decodable pick is preserved.
+- **resolution filter** — drop sources above `profile.maxResolution` (= min of decodable + screen res); no point
+  fetching 4K for a 1080p panel. Capability decides — a 4K-screen phone is **not** excluded from 4K.
+- **`qualityFit`** — quality at/under `target` scores by `quality.rank`; over-target already filtered. Higher
+  resolution wins across resolutions (up to target); **streamability** breaks ties **within** a resolution.
+- **`streamability`** — within a resolution, prefer a **sane bitrate band**: penalise **both** oversize bloat
+  **and** ultra-low-bitrate potatoes (a 1.8 GB "1080p"), landing on a healthy encode (~6–13 GB at 1080p here),
+  not merely the smallest. This is what makes a **1080p 5 GB beat a 1080p 20 GB** (owner's example). Since the
+  candidates are often *all* cached (verified on "Her": 18/18 `[TB+]`), this — not cached-first — does the real
+  work. (Bands + penalty magnitudes fixed in the plan, unit-tested.)
 - **`hdr`** — an HDR source on a non-HDR screen is **kept but penalised** (plays, looks washed out) so an SDR
   equivalent wins when present; never hard-dropped.
 - **`seederScore`** — seeders descending; **1-seeder = penalty** (AutoStream). Cached `[TB+]` already dominates
   via step 1, so seeders mostly tiebreak uncached candidates.
 
-**Effect:** phone/Fold → a streamable ≤1080p encode; 4K-capable TV → up to 2160p the device can actually decode;
-neither auto-picks an undecodable codec; REMUX reachable only via the manual Sources sheet on handhelds.
+**Effect:** any device → a streamable encode **under 20 GB** at the best resolution the device can both decode
+*and* display; never an undecodable codec; never a buffer-prone REMUX. REMUX/over-cap sources are reachable only
+via the **manual Sources sheet** (and are the auto fallback when nothing fits the cap).
 
 ## 6. Data flow
 
@@ -116,7 +127,7 @@ DetailViewModel.loadMovie(id)
   → GetStreamsUseCase → StremioRepository.getStreams → streamUrl(tuneStreamBase(baseUrl), …)   // limit raised
   → raw candidates (each parsed: quality/codec/hdr/source/size/seeders/lang/cached)
   → target = preferredQuality (device-aware default) ; profile = DeviceCapabilities.profile
-  → StreamRanker.rank(raw, profile, target)            // device-tier adaptive
+  → StreamRanker.rank(raw, profile, target)            // 20GB cap + decode/res filter, then quality→streamable
   → PlaybackController.startMovieAuto(ranked, title, progressId=id)
         → resolveFrom(ranked, 0)  (instant for [TB+] url-shape; withTimeout for hash-shape)
         → success: PlaybackState(currentUrl, title, progressId, upNext=null) ; onPlay(...)
@@ -127,13 +138,13 @@ Live IPTV: unchanged (no candidate list).
 
 ## 7. Error handling
 
-- **Nothing resolves** → fall back to the **Sources sheet** (existing behaviour for series; new for movies).
-- **All candidates filtered out** (no decodable source within the device's resolution) → keep the *least-bad*
-  (don't return empty): fall back to ranking ignoring the hard filter so the user still gets *something* + the
-  Sources sheet; log it. A device with literally no decoder for any candidate is rare.
+- **Nothing under the 20 GB cap / nothing decodable** (ranker returns empty) → **fall back to the Sources sheet**
+  (manual pick). This is the owner-chosen behaviour: never auto-play a buffer-prone REMUX; let the user choose one
+  deliberately if they want. The sheet shows every source with its size so the choice is informed.
+- **Nothing resolves** (URLs all fail) → also the **Sources sheet** (existing behaviour for series; new for movies).
 - **`DeviceCapabilities` probe throws / returns sparse data** → degrade to a **permissive profile** (`maxResolution
-  = UHD_2160`, all codecs assumed decodable, `tier = HANDHELD`) so ranking still runs (≈ current behaviour). Never
-  crash playback over a capability query.
+  = UHD_2160`, all codecs assumed decodable) so ranking still runs on size/quality alone (≈ current behaviour, plus
+  the 20 GB cap). Never crash playback over a capability query.
 - All resolution stays on IO dispatchers; `CancellationException` is **rethrown** (codebase convention).
 
 ## 8. Testing
@@ -145,24 +156,28 @@ Live IPTV: unchanged (no candidate list).
 - `StreamParsing`: `codec`/`hdr`/`sourceType` from **real titles** — e.g. `"Her 2013 1080p BluRay REMUX AVC
   DTS-HD MA"` → AVC/SDR/REMUX; `"… 2160p HDR10 HEVC x265"` → HEVC/HDR10; `"… WEB-DL x264"` → AVC/WEBDL; unknown
   strings → `UNKNOWN`.
-- `StreamRanker.rank` with injected profiles:
-  - **HANDHELD** profile (max 1080p, AVC+HEVC, SDR) over the real "Her" list → picks a **non-REMUX** candidate if
-    present; among all-REMUX, picks the **smallest/most-decodable**; never an over-1080p or undecodable source.
-  - **TV** profile (max 2160p, +HDR) → keeps the **highest-quality decodable** pick (REMUX/4K **not** demoted).
-  - **Hard filter**: an HEVC-only list on an AVC-only profile drops them (or falls back per §7), never returns a
+- `StreamRanker.rank` with injected profiles (assert on the real "Her" candidate list):
+  - **20 GB cap**: every source > 20 GB (the 24/30/34 GB REMUX) is excluded from the auto-pick; the chosen source
+    is ≤ 20 GB.
+  - **All-over-cap → empty**: a list where *every* source is > 20 GB returns **empty** (caller → Sources sheet).
+  - **Within-resolution streamability**: given a 1080p 5 GB and a 1080p 20 GB (both decodable, under cap), the
+    **5 GB wins** (owner's example); but an ultra-low 1.8 GB "1080p" is **not** preferred over a healthy ~8 GB one.
+  - **Resolution ceiling**: a 1080p-screen profile (`maxResolution = HD_1080`) never picks a 2160p source; a
+    4K-capable profile may pick 2160p when it's decodable and ≤ 20 GB.
+  - **Codec hard filter**: an HEVC-only list on an AVC-only profile returns empty (→ Sources sheet), never a
     source the device can't decode.
   - **1-seeder penalty** and **cached-first** preserved.
 
 **Emulator smoke (VPN off; restart with `-dns-server` if a fetch 403s) — per build step (§9):**
 1. Parsing — log parsed fields for the "Her" candidates + a HEVC/4K title.
-2. `DeviceCapabilities` — log the probed `DeviceProfile` on the phone emulator (expect: **no 4K-HEVC** decode,
-   max ~1080p, tier HANDHELD — this concretely explains the earlier black-screen/REMUX pain).
-3. Ranker — log the ranked order + the auto-picked candidate for "Her" (expect a streamable pick, not the 24 GB
-   REMUX — **iff** a smaller candidate is in the list; otherwise see §2 non-goal).
-4. Movie auto-pick — tap "Her" → it **auto-plays** (no list); Sources sheet still reachable.
+2. `DeviceCapabilities` — log the probed `DeviceProfile` on the phone emulator (expect: max ~1080p, **no 4K-HEVC**
+   decode — this concretely explains the earlier black-screen/REMUX pain).
+3. Ranker — log the ranked order + the auto-picked candidate for "Her" (expect a streamable ≤ 20 GB pick, not the
+   24 GB REMUX — now guaranteed available thanks to the raised `limit`).
+4. Movie auto-pick — tap "Her" → it **auto-plays** a streamable source (no list); Sources sheet still reachable.
 
-**Hardware / TV (owner):** confirms the **TV-tier 4K path** and real decode (emulator can't decode 4K-HEVC —
-known limitation).
+**Hardware / TV (owner):** confirms the **4K path** on a 4K screen and real decode (emulator can't decode 4K-HEVC
+— known limitation).
 
 ## 9. Build order (incremental — smoke-test each, per owner's "validate as we go")
 
@@ -170,9 +185,10 @@ known limitation).
    `StremioRepository.getStreams`; `Codec`/`Hdr`/`SourceType` enums; `StreamParsing` rules; `Stream` fields) —
    TDD pure; smoke on emulator = the "Her" stream list now shows **~18 candidates incl. ~6–13 GB encodes**, with
    parsed codec/source logged (not just the 5 REMUX).
-2. **`DeviceCapabilities` probe** + `DeviceProfile` — smoke on emulator (log the profile; expect HANDHELD, ~1080p
-   max, AVC present, HEVC-4K likely absent).
-3. **`StreamRanker` rewrite** (device-tier adaptive) — TDD pure (phone vs TV fixtures); smoke = log ranked order.
+2. **`DeviceCapabilities` probe** + `DeviceProfile` — smoke on emulator (log the profile; expect ~1080p max, AVC
+   present, HEVC-4K likely absent).
+3. **`StreamRanker` rewrite** (20 GB cap + decode/res filter + within-res streamability) — TDD pure (1080p-screen
+   vs 4K-capable fixtures; cap/empty/within-res cases); smoke = log ranked order.
 4. **Movie auto-pick wiring** (`startMovieAuto` + `DetailViewModel.loadMovie`; series pass the profile too;
    device-aware `preferredQuality` default) — smoke = tap "Her" auto-plays a **streamable** ~6–13 GB 1080p source
    (not the 24 GB REMUX); Sources sheet intact; series still OK.
@@ -181,13 +197,19 @@ Commit locally after each step. Owner merges.
 
 ## 10. Decisions
 
-- "Best" = **device-tier adaptive** (owner-chosen): per-device ceiling → highest quality under it → streamability →
-  reliability → language. **TV tolerates REMUX/4K; handhelds demote bloat.**
+- "Best" = **capability-filtered + size-capped** (owner-chosen, simplified from per-tier): drop undecodable codecs
+  and over-resolution; **hard 20 GB cap, any resolution/device**; then highest quality at/under target →
+  within-resolution streamability (prefer smaller/sane-bitrate) → cached/seeders → English. **No TV-vs-handheld
+  tier** — the flat cap replaces it.
+- **20 GB is a global hard cap** (kills REMUX everywhere). **Nothing under the cap → Sources sheet** (manual);
+  never auto-play a buffer-fest. REMUX stays reachable by deliberate manual pick.
+- **Resolution = capability, not tier**: target ceiling = min(decodable res, **screen res**); a 4K-screen phone is
+  not excluded from 4K, a 1080p-screen phone targets 1080p (4K on a 1080p panel is invisible + wasteful).
 - **Movies reuse the series engine** (`resolveFrom`); Sources sheet kept as manual override.
 - **`DeviceCapabilities` is client-side and built** (no OSS fits — server pickers are device-blind).
 - **Adopt MIT logic**: parse-torrent-title regexes → `StreamParsing`; AutoStream heuristic → `StreamRanker`.
-- The existing **Preferred-quality** setting is the *target*, with a **device-aware default** (4K-capable TV ⇒
-  4K, else 1080p); device capability is always the hard cap.
+- The existing **Preferred-quality** setting is the *target*, defaulting to the device's `maxResolution`
+  (screen-capable, capped at 4K); device capability + the 20 GB cap are always the hard limits.
 - **Candidate-list composition is folded in** (owner-requested): raise the Torrentio request `limit` (→ 30) via a
   pure `StreamRequestTuning` transform so streamable encodes enter the pool. **Empirically verified** the lever
   works (5 REMUX-only @ limit=5 → 18 mixed-size cached @ limit=30). Only `limit` is touched; the `torbox=` token
