@@ -72,8 +72,9 @@ is build-not-adopt.
 | `DeviceProfile` (data) | `maxResolution: Quality` = **min(max-decodable resolution, screen resolution)** (so a 1080p-screen phone targets 1080p — 4K on a 1080p panel is invisible + wasteful — while a 4K-screen phone/TV gets 4K), `decodableCodecs: Set<Codec>`, `hdrCapable: Boolean`. |
 | `StreamRanker.kt` (rewrite) | `rank(streams, profile: DeviceProfile, target: Quality): List<Stream>` — algorithm in §5 (hard 20 GB cap, decodable + resolution filter, then quality→streamability→reliability). A `preferred`-only overload is kept for any non-VOD caller (delegates with a permissive profile) so nothing else breaks. |
 | `PlaybackController.kt` (modify) | **Inject `DeviceCapabilities`.** Add `suspend startMovieAuto(candidates, title, progressId): Boolean` → `resolveFrom(candidates, 0)` then set a movie `PlaybackState` (`upNext = null`). Update `advanceToNextEpisode`'s internal `StreamRanker.rank(...)` call to pass the `DeviceProfile` + target so the next episode is device-aware too. The existing passive `startMovie(...)` (already-resolved URL, manual pick) stays for the Sources sheet. |
-| `DetailViewModel.kt` (modify) | `loadMovie`: rank with `DeviceProfile` + target, call `startMovieAuto`, and `onPlay(...)` on success; on failure fall back to the Sources sheet (mirrors `playEpisode`). `playEpisode`/`advanceToNextEpisode` pass the `DeviceProfile` too so series benefit. `AppDataStore.preferredQuality` default becomes device-aware (§5). |
-| `AppDataStore.kt` (modify) | `preferredQuality` default resolves to the device's **`maxResolution`** (screen-capable + decodable, capped at 4K) — so a 4K screen targets 4K, a 1080p screen targets 1080p, automatically. The user's explicit Settings choice still wins once set. |
+| `DetailViewModel.kt` (modify) | `loadMovie` ranks with `DeviceProfile`+target into `state.streams` (full list, eligible-first). Add `playMovieAuto(onPlay)`: resolve via `startMovieAuto(autoCandidates, …)` where `autoCandidates = ranked.filter { isAutoEligible }`; on success `onPlay(...)`, on empty/failure leave the list visible (the fallback). `playEpisode` passes `autoCandidates` to `startSeries`; the full `ranked` stays in `state.streams`/`episodeStreams` for the manual list. |
+| `MovieDetail.kt` / `DetailScreen.kt` (modify) | Add a primary **▶ Play** action at the top of the movie Detail (focused by default on TV) wired to `viewModel.playMovieAuto(onPlayStream)`; the existing streams list stays below as the manual override (REMUX pickable). |
+| `AppDataStore.kt` (modify) | Reinterpret `preferredQuality` as a **user ceiling**; change its default from `HD_1080` to **`UHD_2160`** (i.e. "unrestricted"), so no layer coupling. The consumer computes the **effective target = min(preferredQuality, profile.maxResolution)** — a 4K screen then targets 4K, a 1080p screen targets 1080p automatically; a user who picks 1080p in Settings caps there. (`SettingsViewModel` default display follows to 4K.) |
 
 ## 5. Ranking policy
 
@@ -81,15 +82,16 @@ is build-not-adopt.
 SIZE_CAP_BYTES = 20 GB        // global hard cap, any resolution, any device (named constant)
 target = min(userTarget, profile.maxResolution)            // userTarget = preferredQuality setting
 
-eligible = streams.filter {
-    decodable(it.codec, profile)                           // device has a decoder for the codec
-    && it.quality.rank <= profile.maxResolution.rank        // not above what device decodes/screen shows
-    && (it.sizeBytes == null || it.sizeBytes <= SIZE_CAP_BYTES)   // under 20 GB (unknown size kept)
-}
-if (eligible.isEmpty()) → caller falls back to the Sources sheet (manual pick — never auto-play a buffer-fest)
+isAutoEligible(s, profile) =
+       decodable(s.codec, profile)                         // device has a decoder for the codec
+    && s.quality.rank <= profile.maxResolution.rank          // not above what device decodes/screen shows
+    && (s.sizeBytes == null || s.sizeBytes <= SIZE_CAP_BYTES) // under 20 GB (unknown size kept)
 
-eligible.sortedWith(
-    compareByDescending { it.isCached }                    // 1. cached debrid first (uncached = slow)
+// rank() returns the FULL list (nothing dropped) sorted best-for-device-first, so the manual Sources
+// list can still show every source (REMUX included). Ineligible sources sink to the bottom.
+rank(streams, profile, target) = streams.sortedWith(
+    compareByDescending { isAutoEligible(it, profile) }    // 0. eligible-first (over-cap/undecodable sink)
+    .thenByDescending   { it.isCached }                    // 1. cached debrid first (uncached = slow)
     .thenByDescending   { it.languageScore }               // 2. English preference (existing)
     .thenByDescending   { qualityFit(it, target) }         // 3. highest quality at/under target
     .thenByDescending   { streamability(it) }              // 4. within a resolution, prefer smaller/sane bitrate
@@ -97,9 +99,12 @@ eligible.sortedWith(
 )
 ```
 
-- **20 GB hard cap** — never auto-pick a source above it (kills REMUX, 24–34 GB, and absurd 4K everywhere).
-  Unknown-size sources are kept (we can't measure them). If **nothing** is under the cap, the ranker returns
-  empty and the caller shows the **Sources sheet** (§7) — we never auto-play a guaranteed buffer-fest.
+**Auto-pick** (movie Play / series episode / next-episode) resolves **only from `rank(...).filter { isAutoEligible }`**.
+If that subset is empty → decline auto-play and fall back to the **manual list/Sources sheet** (§7) — never
+auto-play a guaranteed buffer-fest. **The manual list shows the full `rank(...)`** so REMUX/over-cap stays pickable.
+
+- **20 GB hard cap** — never *auto*-pick a source above it (kills REMUX, 24–34 GB, and absurd 4K everywhere);
+  it stays selectable manually. Unknown-size sources are treated as eligible (we can't measure them).
 - **`decodable`** — `codec == UNKNOWN` (can't tell ⇒ keep) **or** `codec ∈ profile.decodableCodecs`. Drops a
   HEVC/AV1 source on a device with no such decoder (prevents the `NO_EXCEEDS_CAPABILITIES` hard-fail).
 - **resolution filter** — drop sources above `profile.maxResolution` (= min of decodable + screen res); no point
@@ -138,10 +143,11 @@ Live IPTV: unchanged (no candidate list).
 
 ## 7. Error handling
 
-- **Nothing under the 20 GB cap / nothing decodable** (ranker returns empty) → **fall back to the Sources sheet**
-  (manual pick). This is the owner-chosen behaviour: never auto-play a buffer-prone REMUX; let the user choose one
-  deliberately if they want. The sheet shows every source with its size so the choice is informed.
-- **Nothing resolves** (URLs all fail) → also the **Sources sheet** (existing behaviour for series; new for movies).
+- **No auto-eligible source** (every candidate is > 20 GB or undecodable, so `filter { isAutoEligible }` is empty)
+  → decline auto-play and **fall back to the manual list**. Owner-chosen: never auto-play a buffer-prone REMUX; let
+  the user pick one deliberately. For a **movie** the full sources list is already on screen (it *is* the Detail
+  body); for a **series** this is the **Sources sheet**. Both show every source with its size.
+- **Nothing resolves** (auto-eligible URLs all fail to resolve) → same fallback (movie list / series Sources sheet).
 - **`DeviceCapabilities` probe throws / returns sparse data** → degrade to a **permissive profile** (`maxResolution
   = UHD_2160`, all codecs assumed decodable) so ranking still runs on size/quality alone (≈ current behaviour, plus
   the 20 GB cap). Never crash playback over a capability query.
