@@ -1,6 +1,6 @@
 # AIO TV — TODO / Tracking
 
-_Last updated: 2026-06-22_
+_Last updated: 2026-06-22 (binge/watch shipped)_
 
 Living checklist of outstanding work. Each item is tagged with the roadmap phase that
 resolves it (`[P0]`–`[P5]`), so executing a phase ticks off its items automatically.
@@ -180,9 +180,16 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 
 ## 🎬 VOD follow-ups (from series spine, 2026-06-22)
 
-- [ ] `[P2]` **Auto-next-episode / binge** — after an episode ends, auto-advance to the next
-      episode. Use the `bingeGroup` field in stream metadata to group episodes; hook into the
-      existing Player 20 s auto-advance mechanism.
+- [x] `[P2]` **Auto-next-episode / binge** — Netflix-style "Up next in 5 s" countdown on episode end
+      → auto-advances to next episode. `bingeGroup`-preferred next-source selection + episode
+      sequencing reimplemented from stremio-core (MIT). Built on a new `@Singleton PlaybackController`
+      session holder. Validated on phone emulator: Rick & Morty S1E1 ended → countdown → player
+      swapped to S1E2 (seekbar reset, E2 playing). _(shipped 2026-06-22, branch `feat/binge-watch`)_
+- [x] `[P2]` **Quality preference** — default **1080p**, optional **4K**, implemented as
+      **source-ranking** in `StreamRanker` (DESIGN decision 8; NOT `TrackSelectionParameters` —
+      that is for in-stream tracks and does not apply to our separate-URL torrent sources). A
+      Settings toggle controls the default. Side-benefit: preferring 1080p avoids black-screen 4K-HEVC
+      streams on the emulator. _(shipped 2026-06-22, branch `feat/binge-watch`)_
 - [x] `[P2]` **VOD search — needs a search-capable meta source** — **shipped (2026-06-22, branch
       `feat/search-vod-home`):** main Search now queries Cinemeta's search catalog
       (`catalog/<type>/top/search=<query>.json`, host fallback cinemeta-live → v3) for both movies
@@ -193,10 +200,42 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - [ ] `[P3]` **TV-emulator validation pass** — re-validate Detail + episode playback, D-pad
       Sources list, and focus behaviour on the TV emulator after series-spine work. (Only phone
       emulator validated so far.)
-- [ ] `[P2]` **Player-level auto-advance on playback error** — the current 20 s auto-advance is
-      at source-resolve time (past dead torrent picks); add a parallel path that triggers if
-      ExoPlayer raises a `PlayerError` mid-playback, advancing to the next `StreamRanker` candidate
-      without requiring a Sources sheet tap.
+
+## 🔄 Binge/watch follow-ups (from `feat/binge-watch` final review, 2026-06-22)
+
+- [ ] `[P3]` **Session-latch restore edge** — `sessionActive` is `rememberSaveable` (survives
+      rotation by design); a process-death restore while a *different* VOD play has populated the
+      singleton `PlaybackController` could mis-bind to the wrong episode. Rare (requires concurrent
+      second VOD); revisit if multi-window / picture-in-picture matters.
+- [ ] `[P2]` **Next-episode resume behaviour** — auto-advance currently calls `getStartPosition`
+      for the next episode, so a partially-watched next episode resumes mid-way (resume-aware,
+      intentional). Note here so it is not accidentally "fixed" to always start from zero.
+- [ ] `[P3]` **On-device confirmations still pending** — mid-play failover swap (hard to force
+      without a bad source in the rotation), manual Sources-pick-after-auto-play, and
+      error-burst failover guard — all require physical hardware or an injected bad-source fixture.
+
+## 🌐 OSS adopt opportunities (audit 2026-06-22)
+
+Build-vs-adopt was validated for 9 subsystems (the only feature-complete fork, CloudStream, is
+GPL — off-limits for a closed app; other candidates unlicensed/abandoned/wrong-stack).
+Hand-rolling was the right call almost everywhere. Three concrete opportunities to revisit:
+
+- [ ] `[P2]` **iptv-org/database (Unlicense/public-domain)** — authoritative channel
+      country/language/category data (github.com/iptv-org/database). Adopt as a bundled lookup
+      layer **over** our heuristic `RegionClassifier` (keep ours as the long-tail fallback).
+      Highest-value opportunity. Bonus: `guides.json` maps channels to EPG sources.
+- [ ] `[P3]` **`androidx.media3:media3-ui-compose` + `-material3` (Apache-2.0, first-party)** —
+      adopt for the player UI during player polish work, instead of the current
+      `AndroidView(PlayerView)` interop.
+- [ ] `[P4]` **Subtitles via the Stremio `/subtitles` addon resource** — reuses our existing addon
+      client; near-zero-cost future feature (no new dependency or API key).
+- _Note: `stremio-core` (MIT) is the model-shape template for our `Stream`/`behaviorHints`/
+  `binge_group` types (already mirrored in the binge work)._
+- [x] `[P2]` **Player-level auto-advance on playback error** — `onPlayerError → swap MediaItem →
+      prepare()` silently advances to the next ranked candidate source for the same episode; shows
+      a brief "Trying another source…" indicator; exhausted → error + Retry. (No Media3
+      fallback-URL primitive exists, per ExoPlayer #6422/#4343 — implemented via the
+      `Player.Listener` path.) _(shipped 2026-06-22, branch `feat/binge-watch`)_
 - [ ] `[P2]` **MovieMetaFallbackTest** — add a unit test covering movie metadata resolution via
       Cinemeta (similar to the series episode-list path) to ensure Cinemeta fallback parity for
       movies stays intact.

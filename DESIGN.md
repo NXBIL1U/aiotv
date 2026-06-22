@@ -81,6 +81,18 @@ StreamResolver           (turn a Stream into a playable URL)
 
 This makes "add Real-Debrid support" or "add a new catalog provider" a contained task.
 
+**OSS build-vs-adopt audit (2026-06-22):** 9 subsystems reviewed. Hand-rolling was the right call
+almost everywhere — the only feature-complete third-party fork (CloudStream) is GPL and off-limits
+for a closed app; other candidates were unlicensed, abandoned, or wrong-stack. Three concrete
+**adopt** opportunities on record: (1) **iptv-org/database** (Unlicense/public-domain,
+github.com/iptv-org/database) — authoritative channel country/language/category data; adopt as a
+bundled lookup layer **over** our `RegionClassifier` (highest-value); (2)
+**`androidx.media3:media3-ui-compose` + `-material3`** (Apache-2.0, first-party) — for player UI
+polish instead of `AndroidView(PlayerView)` interop; (3) **Stremio `/subtitles` addon resource** —
+reuses our existing addon client; near-zero-cost future subtitle feature. Also: `stremio-core`
+(MIT) is the model-shape template for our `Stream`/`behaviorHints`/`binge_group` types (already
+mirrored in the binge work). See TODO § "OSS adopt opportunities" for P-tagged items.
+
 ## 6. Playback
 
 - Resolve chain: `Stream` → `PlaybackResolver` → playable URL → Media3/ExoPlayer.
@@ -89,23 +101,32 @@ This makes "add Real-Debrid support" or "add a new catalog provider" a contained
   hinge-aware control placement, robust error/retry (P0 foundation already in place).
 - Live vs VOD handled by the same player with mode-aware controls (no seek bar tricks for live).
 
-## 6a. One-tap playback & series UX (Netflix-style)
+## 6a. One-tap playback & series UX (Netflix-style) _(shipped on `feat/binge-watch`, 2026-06-22)_
 
 **Principle: the user never picks a stream.** They tap a title (or episode); the app
 auto-selects the best *working* source and plays. Validated against live data (2026-06-21):
 Cinemeta returns full episode lists; Torrentio+TorBox returns per-episode **cached** (`[TB+]`,
 direct-URL) streams with quality labels (e.g. `tt0903747:1:1` → 15 streams, all cached).
 
-**Auto-select ("best working link"):**
+**Auto-select ("best working link") — shipped:**
 1. Filter to **cached** streams (direct `url`, instant) for the default path; ignore bare
    infoHash unless nothing else is available.
 2. **Rank by quality**, honouring user preference: **default 1080p**; a **Settings toggle sets
-   the default to 1080p or 4K**; a **per-play control** can switch to 4K manually.
-3. **Play the top candidate; on any `PlayerError`, silently fail over to the next** (extends the
-   P0 `Player.Listener`). "Best working" = optimistic play + automatic failover, not pre-flight
-   probing.
+   the default to 1080p or 4K**. Quality is implemented as **source-ranking in `StreamRanker`**,
+   not `TrackSelectionParameters` (which is for in-stream tracks and does not apply to our
+   separate-URL torrent sources).
+3. **Play the top candidate; on any `PlayerError`, silently fail over to the next** via
+   `onPlayerError → swap MediaItem → prepare()` (no Media3 fallback-URL primitive — per ExoPlayer
+   #6422/#4343). Shows "Trying another source…"; exhausted → error + Retry. "Best working" =
+   optimistic play + automatic failover, not pre-flight probing.
 4. A **discreet "Sources / quality" override** (hidden by default) lets power users pick a
    specific stream.
+
+**Auto-next-episode / binge — shipped (branch `feat/binge-watch`):** Netflix-style "Up next in
+5 s" countdown on episode end → auto-advances to next episode. `bingeGroup`-preferred
+next-source selection + episode sequencing reimplemented from stremio-core (MIT); built on a
+`@Singleton PlaybackController` session holder. Validated: Rick & Morty S1E1 ended → countdown
+→ player swapped to S1E2 (seekbar reset, E2 playing).
 
 **Metadata — Cinemeta as a built-in default.** Treat a meta provider (Cinemeta) as always-on
 infrastructure, **not** a user addon (mirrors Stremio). Gives every title a real
@@ -218,17 +239,16 @@ reflect the real state — don't read this list strictly top-to-bottom._
   cache-invalidation-on-settings-change.
 - **Exit:** adding/removing a source updates the UI live; first-run wizard configures the app.
 
-### Phase 2 — Core experience (VOD) _(partly done — series spine + Detail shipped; search + binge pending)_
-- **Status (2026-06-22):** **Series spine + Netflix Detail page shipped** (branch
-  `feat/vod-series-spine`): Cinemeta built-in meta (movies + series), per-episode stream requests,
-  `StreamRanker`, auto-play best cached source, per-episode resume, Netflix-style Detail
-  (backdrop/hero, season selector, episode list with thumbnails + resume bars, two-pane ≥840dp,
-  TV D-pad Sources list). Movie metadata also resolved via Cinemeta (titles/posters/overviews).
-  Dark + Netflix-red theme foundation delivered (`ui/theme/`).
-  Still TODO: **VOD search** (needs a search-capable meta source — Cinemeta-style catalog; current
-  search returns only IPTV channels); **auto-next-episode / binge** (use stream `bingeGroup`);
-  Home → VOD network categories (nabz); quality preference (1080p/4K setting + per-play switch);
-  player subtitles/audio track; fold/hinge posture awareness.
+### Phase 2 — Core experience (VOD) _(substantially complete — series spine + Detail + search + binge + quality all shipped; remaining: Home network rails, player subtitles/track UI, fold posture)_
+- **Status (2026-06-22):** **Series spine + Netflix Detail page** (branch `feat/vod-series-spine`),
+  **VOD search** (branch `feat/search-vod-home`), and **auto-next-episode / binge + mid-play
+  failover + quality preference** (branch `feat/binge-watch`) are all shipped and emulator-validated.
+  Build-vs-adopt verdict: Media3 playlist/transition + thin app glue; stremio-core (MIT) as the
+  model-shape template for `bingeGroup`/episode sequencing; quality as source-ranking (not
+  `TrackSelectionParameters`, which is for in-stream tracks only). Dark + Netflix-red theme
+  foundation also delivered (`ui/theme/`).
+  Still TODO (remaining Phase 2): **Home → VOD network-category rows** (nabz); **player
+  subtitles/audio track UI**; **fold/hinge posture awareness** (hinge crease).
 - **Goal:** make browsing → detail → play feel premium (Netflix-style; see §6a). _(Overlaps the
   queued Home → VOD network categories work.)_
 - **Deliverables:** **auto-select best-working stream + failover** (no manual list); **Cinemeta
@@ -299,6 +319,8 @@ No offline downloads · no multiple profiles · no DVR/recording · no app backe
 
 ## 12. Where we are now
 
+_Last updated: 2026-06-22 (binge/watch shipped + OSS audit)._
+
 See [`TODO.md`](TODO.md) for the live checklist. Summary (2026-06-21): **Phase 0 essentially done** —
 verified on emulators against the owner's real addons (Netflix catalog + Torrentio+TorBox):
 movie **playback works** end-to-end (Path B, cached direct URLs), **series load** (fixed a
@@ -342,5 +364,22 @@ overviews — previously movies showed the raw IMDb id). The **dark + Netflix-re
 (`ui/theme/`) shipped alongside. Validated on phone emulator with VPN off: Rick & Morty S1E1 plays
 + resumes (00:59/22:01), resume bar + "Resume S1·E1" shown; Aftersun shows title + overview; two-
 pane landscape confirmed. No crashes. _TV-emulator pass still pending._
-**VOD search gap noted:** search currently returns only IPTV channels — there is no search-capable
-VOD meta source installed. Fixing this needs a Cinemeta-style search catalog/addon (see §8).
+**VOD search** (branch `feat/search-vod-home`, 2026-06-22) then closed that gap: main Search now
+queries Cinemeta's search catalog for both movies and series; channels are removed from main Search
+(channel search stays in the Live TV tab). Validated: "inception" returns the film; "rick and
+morty" returns the series.
+
+**Binge/watch** (branch `feat/binge-watch`, 2026-06-22) completes the Phase 2 series core:
+**auto-next-episode** (Netflix-style "Up next in 5 s" countdown → auto-advances; episode
+sequencing + `bingeGroup`-preferred next source reimplemented from stremio-core MIT; built on a
+`@Singleton PlaybackController` session holder); **mid-play failover** (`onPlayerError → swap
+MediaItem → prepare()`; "Trying another source…" indicator; exhausted → error + Retry — no
+Media3 fallback-URL primitive, per ExoPlayer #6422/#4343); and **quality preference** (default
+1080p / optional 4K as source-ranking in `StreamRanker` — not `TrackSelectionParameters`, which
+is for in-stream tracks). Build-vs-adopt validated for all three. Emulator-confirmed: Rick & Morty
+S1E1 ended → countdown → player swapped to S1E2 (seekbar reset, E2 playing). **Phase 2 is
+substantially complete**: series spine, Detail, search, binge, and quality all shipped. Remaining:
+Home VOD network-category rows (nabz), player subtitles/track UI, fold/hinge posture awareness.
+
+A background **OSS build-vs-adopt audit** (2026-06-22) reviewed 9 subsystems and confirmed
+hand-rolling was correct across the board. Three adopt opportunities logged in TODO and §5.
