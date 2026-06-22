@@ -1,7 +1,10 @@
 package com.itrepos.aiotv.ui.screen.settings
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +22,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,7 +51,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.R
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalFoundationApi::class)
+/** All 7 region tags with friendly display labels. */
+private val LIVE_TV_REGIONS = listOf(
+    "US"    to "United States",
+    "UK"    to "United Kingdom",
+    "EN"    to "English",
+    "LATAM" to "Latin America",
+    "EU"    to "Europe",
+    "MENA"  to "MENA / Africa / Asia",
+    "OTHER" to "Other",
+)
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     isTv: Boolean,
@@ -186,6 +202,33 @@ fun SettingsScreen(
                 newAddonUrl = ""
             }) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.settings_add_addon))
+            }
+        }
+
+        // ── Live TV — Regions ──────────────────────────────────────────────────
+        Spacer(Modifier.height(16.dp))
+        SectionHeader("Live TV — Regions")
+        Text(
+            "Select which regions to include in your Live TV channel list. Tap to toggle — changes apply immediately.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            LIVE_TV_REGIONS.forEach { (tag, label) ->
+                val selected = tag in state.liveRegions
+                FilterChip(
+                    selected = selected,
+                    onClick = {
+                        val updated = if (selected) state.liveRegions - tag
+                                      else state.liveRegions + tag
+                        viewModel.setLiveRegions(updated)
+                    },
+                    label = { Text(label) },
+                )
             }
         }
 

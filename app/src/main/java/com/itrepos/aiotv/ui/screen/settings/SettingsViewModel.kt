@@ -18,6 +18,7 @@ data class SettingsState(
     val m3uUrl: String = "",
     val xmltvUrl: String = "",
     val addonUrls: Set<String> = emptySet(),
+    val liveRegions: Set<String> = AppDataStore.DEFAULT_LIVE_REGIONS,
     val saved: Boolean = false,
 )
 
@@ -51,6 +52,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             store.xmltvUrl.collect { _state.value = _state.value.copy(xmltvUrl = it) }
         }
+        viewModelScope.launch {
+            store.liveRegions.collect { v -> _state.value = _state.value.copy(liveRegions = v) }
+        }
     }
 
     fun save(
@@ -79,5 +83,14 @@ class SettingsViewModel @Inject constructor(
 
     fun removeAddon(url: String) {
         viewModelScope.launch { store.removeAddonUrl(url) }
+    }
+
+    /**
+     * Toggle a single region tag in the Live TV region set.
+     * Persists immediately; ensures at least one region remains selected.
+     */
+    fun setLiveRegions(regions: Set<String>) {
+        if (regions.isEmpty()) return // never allow empty selection
+        viewModelScope.launch { store.setLiveRegions(regions) }
     }
 }
