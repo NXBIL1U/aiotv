@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -187,23 +189,33 @@ fun SettingsScreen(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            BringIntoViewField(modifier = Modifier.weight(1f)) {
-                OutlinedTextField(
-                    value = newAddonUrl,
-                    onValueChange = { newAddonUrl = it },
-                    label = { Text(stringResource(R.string.settings_addon_url)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            IconButton(onClick = {
+        BringIntoViewField(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = newAddonUrl,
+                onValueChange = { newAddonUrl = it },
+                label = { Text(stringResource(R.string.settings_addon_url)) },
+                placeholder = { Text("https://…/manifest.json") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    viewModel.addAddon(newAddonUrl)
+                    newAddonUrl = ""
+                }),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
                 viewModel.addAddon(newAddonUrl)
                 newAddonUrl = ""
-            }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.settings_add_addon))
-            }
+            },
+            enabled = newAddonUrl.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.settings_add_addon))
         }
 
         // ── Live TV — Regions ──────────────────────────────────────────────────

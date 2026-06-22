@@ -82,8 +82,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun addAddon(url: String) {
-        if (url.isBlank()) return
-        viewModelScope.launch { store.addAddonUrl(url) }
+        val u = url.trim()
+        if (u.isBlank()) return
+        viewModelScope.launch { store.addAddonUrl(u) }
     }
 
     fun removeAddon(url: String) {
