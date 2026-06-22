@@ -2,6 +2,10 @@ package com.itrepos.aiotv.domain.model
 
 enum class Quality(val rank: Int) { UHD_2160(4), HD_1080(3), HD_720(2), SD(1), UNKNOWN(0) }
 
+enum class Codec { AVC, HEVC, AV1, UNKNOWN }
+enum class Hdr { SDR, HDR10, DOLBY_VISION, UNKNOWN }
+enum class SourceType { REMUX, BLURAY, WEBDL, WEBRIP, HDTV, UNKNOWN }
+
 data class Stream(
     val title: String?,
     val url: String?,
@@ -17,6 +21,9 @@ data class Stream(
     val sizeBytes: Long? = null,
     val languageScore: Int = 0,
     val bingeGroup: String? = null,
+    val codec: Codec = Codec.UNKNOWN,
+    val hdr: Hdr = Hdr.UNKNOWN,
+    val source: SourceType = SourceType.UNKNOWN,
 )
 
 data class BehaviorHints(val bingeGroup: String? = null, val filename: String? = null)

@@ -1,7 +1,10 @@
 package com.itrepos.aiotv
 
 import com.itrepos.aiotv.domain.StreamParsing
+import com.itrepos.aiotv.domain.model.Codec
+import com.itrepos.aiotv.domain.model.Hdr
 import com.itrepos.aiotv.domain.model.Quality
+import com.itrepos.aiotv.domain.model.SourceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
@@ -33,5 +36,25 @@ class StreamParsingTest {
         assertEquals(2, eng)
         assertTrue(eng > rus)
         assertTrue(eng > fra)
+    }
+    @Test fun parsesCodec() {
+        assertEquals(Codec.AVC, StreamParsing.codec("Her 2013 1080p BluRay REMUX AVC DTS-HD MA"))
+        assertEquals(Codec.AVC, StreamParsing.codec("Her.2013.1080p.BluRay.x264-SPARKS"))
+        assertEquals(Codec.HEVC, StreamParsing.codec("Her 2013 1080p BluRay x265-YAWNTiC"))
+        assertEquals(Codec.HEVC, StreamParsing.codec("Movie 2160p HDR10 HEVC"))
+        assertEquals(Codec.AV1, StreamParsing.codec("Movie 1080p WEB-DL AV1"))
+        assertEquals(Codec.UNKNOWN, StreamParsing.codec("Movie 1080p BluRay"))
+    }
+    @Test fun parsesHdr() {
+        assertEquals(Hdr.HDR10, StreamParsing.hdr("Movie 2160p HDR10 HEVC"))
+        assertEquals(Hdr.DOLBY_VISION, StreamParsing.hdr("Movie 2160p DV Dolby Vision HEVC"))
+        assertEquals(Hdr.UNKNOWN, StreamParsing.hdr("Her 2013 1080p BluRay x264"))
+    }
+    @Test fun parsesSourceType() {
+        assertEquals(SourceType.REMUX, StreamParsing.sourceType("Her 2013 1080p BluRay REMUX AVC"))
+        assertEquals(SourceType.WEBDL, StreamParsing.sourceType("Movie 1080p WEB-DL x264"))
+        assertEquals(SourceType.WEBRIP, StreamParsing.sourceType("Movie 1080p WEBRip x265"))
+        assertEquals(SourceType.BLURAY, StreamParsing.sourceType("Her.2013.1080p.BluRay.x264-SPARKS"))
+        assertEquals(SourceType.UNKNOWN, StreamParsing.sourceType("Some random title"))
     }
 }

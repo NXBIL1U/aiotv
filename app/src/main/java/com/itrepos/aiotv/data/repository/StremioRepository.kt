@@ -96,6 +96,9 @@ class StremioRepository @Inject constructor(
             sizeBytes = StreamParsing.sizeBytes(title),
             languageScore = StreamParsing.languageScore(detectText),
             bingeGroup = behaviorHints?.bingeGroup,
+            codec = StreamParsing.codec(detectText),
+            hdr = StreamParsing.hdr(detectText),
+            source = StreamParsing.sourceType(detectText),
         )
     }
 }

@@ -1,6 +1,9 @@
 package com.itrepos.aiotv.domain
 
+import com.itrepos.aiotv.domain.model.Codec
+import com.itrepos.aiotv.domain.model.Hdr
 import com.itrepos.aiotv.domain.model.Quality
+import com.itrepos.aiotv.domain.model.SourceType
 
 object StreamParsing {
     private val seedersRe = Regex("👤\\s*(\\d+)")          // 👤 N
@@ -37,6 +40,49 @@ object StreamParsing {
     }
     // [TB+] is a literal substring (Torrentio's TorBox-cached marker), not a regex character class.
     fun isTbCached(name: String?): Boolean = name?.contains("[TB+]") == true
+    // parse-torrent-title patterns (MIT), trimmed to what the ranker needs.
+    private val hevcRe = Regex("\\bx265\\b|\\bh\\.?265\\b|\\bHEVC\\b", RegexOption.IGNORE_CASE)
+    private val avcRe = Regex("\\bx264\\b|\\bh\\.?264\\b|\\bAVC\\b", RegexOption.IGNORE_CASE)
+    private val av1Re = Regex("\\bAV1\\b", RegexOption.IGNORE_CASE)
+    private val dvRe = Regex("\\bDV\\b|\\bDolby\\s?Vision\\b|\\bDoVi\\b", RegexOption.IGNORE_CASE)
+    private val hdr10Re = Regex("\\bHDR10(\\+)?\\b|\\bHDR\\b", RegexOption.IGNORE_CASE)
+    private val remuxRe = Regex("\\bREMUX\\b", RegexOption.IGNORE_CASE)
+    private val webdlRe = Regex("\\bWEB[-. ]?DL\\b|\\bWEBDL\\b|\\bAMZN\\b|\\bNF\\b", RegexOption.IGNORE_CASE)
+    private val webripRe = Regex("\\bWEB[-. ]?Rip\\b|\\bWEBRip\\b", RegexOption.IGNORE_CASE)
+    private val blurayRe = Regex("\\bBlu[-. ]?Ray\\b|\\bBDRip\\b|\\bBRRip\\b|\\bBDRemux\\b", RegexOption.IGNORE_CASE)
+    private val hdtvRe = Regex("\\bHDTV\\b", RegexOption.IGNORE_CASE)
+
+    fun codec(text: String?): Codec {
+        val t = text ?: return Codec.UNKNOWN
+        return when {
+            av1Re.containsMatchIn(t) -> Codec.AV1
+            hevcRe.containsMatchIn(t) -> Codec.HEVC
+            avcRe.containsMatchIn(t) -> Codec.AVC
+            else -> Codec.UNKNOWN
+        }
+    }
+
+    fun hdr(text: String?): Hdr {
+        val t = text ?: return Hdr.UNKNOWN
+        return when {
+            dvRe.containsMatchIn(t) -> Hdr.DOLBY_VISION
+            hdr10Re.containsMatchIn(t) -> Hdr.HDR10
+            else -> Hdr.UNKNOWN
+        }
+    }
+
+    fun sourceType(text: String?): SourceType {
+        val t = text ?: return SourceType.UNKNOWN
+        return when {
+            remuxRe.containsMatchIn(t) -> SourceType.REMUX
+            webdlRe.containsMatchIn(t) -> SourceType.WEBDL
+            webripRe.containsMatchIn(t) -> SourceType.WEBRIP
+            blurayRe.containsMatchIn(t) -> SourceType.BLURAY
+            hdtvRe.containsMatchIn(t) -> SourceType.HDTV
+            else -> SourceType.UNKNOWN
+        }
+    }
+
     /** Higher = more likely English. */
     fun languageScore(text: String?): Int {
         val t = text ?: return 0
