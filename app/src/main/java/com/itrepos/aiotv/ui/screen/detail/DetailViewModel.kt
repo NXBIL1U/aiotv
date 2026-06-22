@@ -33,6 +33,7 @@ data class DetailState(
     val streams: List<Stream> = emptyList(),
     val resolvedUrl: String? = null,
     val resolving: Boolean = false,
+    val showMovieSources: Boolean = false,
     // Series path
     val series: SeriesMeta? = null,
     val selectedSeason: Int? = null,
@@ -192,6 +193,10 @@ class DetailViewModel @Inject constructor(
             }
         }
     }
+
+    /** Movie Sources sheet (manual override / auto-pick-fail fallback). */
+    fun showMovieSources() { _state.value = _state.value.copy(showMovieSources = true) }
+    fun dismissMovieSources() { _state.value = _state.value.copy(showMovieSources = false) }
 
     /** Open the Sources sheet for manual selection. */
     fun showSources(episode: Episode) {

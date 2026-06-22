@@ -30,17 +30,32 @@ fun DetailScreen(
     }
 
     when (state.kind) {
-        DetailKind.MOVIE -> MovieDetail(
-            state = state,
-            fallbackTitle = id,
-            onPlayAuto = { viewModel.playMovieAuto(onPlayStream) },
-            onPlayStream = { stream ->
-                viewModel.resolveStream(stream) { url ->
-                    onPlayStream(url, stream.title ?: state.meta?.name ?: id, url)
+        DetailKind.MOVIE -> {
+            MovieDetail(
+                state = state,
+                fallbackTitle = id,
+                onPlayAuto = { viewModel.playMovieAuto(onPlayStream) },
+                onShowSources = { viewModel.showMovieSources() },
+                onBack = onBack,
+            )
+            if (state.showMovieSources) {
+                val pick: (com.itrepos.aiotv.domain.model.Stream) -> Unit = { stream ->
+                    viewModel.dismissMovieSources()
+                    viewModel.resolveStream(stream) { url ->
+                        onPlayStream(url, state.meta?.name ?: id, url)
+                    }
                 }
-            },
-            onBack = onBack,
-        )
+                if (isTv) {
+                    SourcesList(streams = state.streams, onPick = pick)
+                } else {
+                    SourcesSheet(
+                        streams = state.streams,
+                        onPick = pick,
+                        onDismiss = { viewModel.dismissMovieSources() },
+                    )
+                }
+            }
+        }
 
         DetailKind.SERIES -> {
             SeriesDetail(
