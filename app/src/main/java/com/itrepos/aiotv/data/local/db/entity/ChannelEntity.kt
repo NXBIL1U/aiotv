@@ -21,4 +21,6 @@ data class ChannelEntity(
     val regionTag: String,
     val epgChannelId: String?,
     val num: Int,
+    /** Display channel number (Xtream `num` / M3U `tvg-chno`), shown Sky-style on each row. */
+    val channelNo: Int = 0,
 )

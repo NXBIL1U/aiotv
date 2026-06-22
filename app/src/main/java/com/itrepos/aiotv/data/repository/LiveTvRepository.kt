@@ -232,6 +232,7 @@ class LiveTvRepository @Inject constructor(
                         regionTag = RegionClassifier.classify(catName),
                         epgChannelId = s.epgChannelId,
                         num = s.streamId, // use streamId as ordering num
+                        channelNo = s.num, // provider's display channel number (Sky-style)
                     )
                 }
 
@@ -278,6 +279,7 @@ class LiveTvRepository @Inject constructor(
                     regionTag = RegionClassifier.classify(ch.categoryKey),
                     epgChannelId = ch.tvgId,
                     num = index,
+                    channelNo = index + 1, // M3U has no LCN; use 1-based position
                 )
             }
 
@@ -371,6 +373,7 @@ fun ChannelEntity.toDomain() = com.itrepos.aiotv.domain.model.Channel(
     streamUrl = streamUrl,
     tvgId = epgChannelId,
     categoryKey = categoryId,
+    channelNo = channelNo,
 )
 
 fun CategoryEntity.toDomain() = ChannelCategory(id = id, name = name)

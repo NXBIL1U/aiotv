@@ -1,0 +1,109 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e8]:
+          - link "logo":
+            - /url: /
+            - img "logo" [ref=e9] [cursor=pointer]
+        - generic [ref=e10]:
+          - button "Log in" [ref=e11] [cursor=pointer]
+          - button "Sign up" [ref=e12] [cursor=pointer]
+    - generic [ref=e13]:
+      - main [ref=e15]:
+        - generic [ref=e16]:
+          - heading "The effortless way to watch your playlists" [level=4] [ref=e17]
+          - paragraph [ref=e19]:
+            - strong [ref=e20]: IMPORTANT!
+            - text: TiviMate is a media player only and does not provide any content. TiviMate is not affiliated with any content provider and does not endorse the use of illegal content sources. To watch anything, you must add your own playlists. Any paid subscription or premium upgrade unlocks application features only; it does not include, or provide access to, any channels, streams, or media content.
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e23]:
+              - img "screenshot" [ref=e26]
+              - img "screenshot" [ref=e28]
+              - img "screenshot" [ref=e30]
+              - img "screenshot" [ref=e32]
+              - img "screenshot" [ref=e34]
+              - img "screenshot" [ref=e36]
+            - button "previous screenshot" [disabled]:
+              - img
+            - button "next screenshot" [ref=e38] [cursor=pointer]:
+              - img [ref=e39]
+          - paragraph [ref=e41]: Screenshots are for illustrative purposes only. Channels and content shown are examples and are not provided by TiviMate.
+        - generic [ref=e42]:
+          - heading "Why TiviMate?" [level=4] [ref=e43]
+          - generic [ref=e44]:
+            - generic [ref=e45]:
+              - img [ref=e47]
+              - generic [ref=e49]:
+                - heading "Multiple playlists" [level=5] [ref=e50]
+                - paragraph [ref=e51]: Effortlessly manage and switch between your playlists
+            - generic [ref=e52]:
+              - img [ref=e54]
+              - generic [ref=e56]:
+                - heading "Favorite channels" [level=5] [ref=e57]
+                - paragraph [ref=e58]: Bookmark your most-watched channels for instant access
+            - generic [ref=e59]:
+              - img [ref=e61]
+              - generic [ref=e63]:
+                - heading "Search" [level=5] [ref=e64]
+                - paragraph [ref=e65]: Find channels and shows instantly with intuitive search
+            - generic [ref=e66]:
+              - img [ref=e68]
+              - generic [ref=e70]:
+                - heading "Multiview" [level=5] [ref=e71]
+                - paragraph [ref=e72]: Watch different channels simultaneously on the same screen
+            - generic [ref=e73]:
+              - img [ref=e75]
+              - generic [ref=e77]:
+                - heading "Catch-up" [level=5] [ref=e78]
+                - paragraph [ref=e79]: Never miss a show again with convenient access to past broadcasts
+            - generic [ref=e80]:
+              - img [ref=e82]
+              - generic [ref=e84]:
+                - heading "Recording" [level=5] [ref=e85]
+                - paragraph [ref=e86]: Record your favorite shows to watch them later
+            - generic [ref=e87]:
+              - img [ref=e89]
+              - generic [ref=e91]:
+                - heading "Parental controls" [level=5] [ref=e92]
+                - paragraph [ref=e93]: Manage access with ease, ensuring a safe viewing environment
+            - generic [ref=e94]:
+              - img [ref=e96]
+              - generic [ref=e98]:
+                - heading "Personalization" [level=5] [ref=e99]
+                - paragraph [ref=e100]: Adjust the app's look and layout to your preferences
+          - generic [ref=e101]:
+            - heading "Download now" [level=4] [ref=e102]
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - generic [ref=e105]:
+                  - paragraph [ref=e106]: You can install TiviMate directly. This version has fewer restrictions and checks for updates.
+                  - link "Download APK" [ref=e107] [cursor=pointer]:
+                    - /url: https://tivimate.com/apk
+                - generic [ref=e108]:
+                  - paragraph [ref=e109]: TiviMate is also available on Google Play
+                  - link "google-play" [ref=e110] [cursor=pointer]:
+                    - /url: https://play.google.com/store/apps/details?id=ar.tvplayer.tv
+                    - button "google-play" [ref=e111]:
+                      - img "Get it on Google Play" [ref=e113]
+              - generic [ref=e114]:
+                - paragraph [ref=e115]: In the Downloader app, enter code
+                - generic [ref=e116]: "272483"
+                - paragraph [ref=e117]: or URL
+                - generic [ref=e118]: tivimate.com/apk
+              - paragraph [ref=e119]: The app is intended for Android TV devices and is not optimized for phones and tablets
+      - contentinfo [ref=e121]:
+        - generic [ref=e122]:
+          - paragraph [ref=e123]: Copyright © 2026 TiviMate
+          - paragraph [ref=e124]:
+            - text: "Email:"
+            - link "support@tivimate.com" [ref=e125] [cursor=pointer]:
+              - /url: mailto:support@tivimate.com
+          - paragraph [ref=e126]:
+            - link "Terms of Use" [ref=e127] [cursor=pointer]:
+              - /url: /terms-of-use
+          - paragraph [ref=e128]:
+            - link "Privacy Policy" [ref=e129] [cursor=pointer]:
+              - /url: https://sites.google.com/view/tivimateprivacy
+  - alert [ref=e130]

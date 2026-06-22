@@ -1,0 +1,350 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation "Page Header" [ref=e3]:
+      - link "Google Play logo" [ref=e4] [cursor=pointer]:
+        - /url: /store/games
+        - img [ref=e5]
+        - generic [ref=e12]: google_logo Play
+      - navigation "Main" [ref=e14]:
+        - tablist [ref=e16]:
+          - generic [ref=e19]:
+            - tab "Games" [ref=e20] [cursor=pointer]:
+              - generic:
+                - generic: Games
+            - tab "Apps" [selected] [ref=e22] [cursor=pointer]:
+              - generic:
+                - generic: Apps
+            - tab "Books" [ref=e24] [cursor=pointer]:
+              - generic:
+                - generic: Books
+            - tab "Kids" [ref=e26] [cursor=pointer]:
+              - generic:
+                - generic: Kids
+      - generic [ref=e28]:
+        - button "Search" [ref=e30] [cursor=pointer]:
+          - generic [ref=e31]: search
+        - button "Help Center" [ref=e33] [cursor=pointer]:
+          - generic [ref=e34]: help_outline
+        - button "Open account menu" [ref=e39] [cursor=pointer]:
+          - img [ref=e40]
+  - generic [ref=e45]:
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - img [ref=e52]
+        - generic [ref=e53]:
+          - generic [ref=e56]:
+            - heading "TiviMate IPTV Player" [level=1] [ref=e58]
+            - generic [ref=e59]:
+              - link "Armobsoft FZE" [ref=e61] [cursor=pointer]:
+                - /url: /store/apps/developer?id=Armobsoft+FZE
+              - generic [ref=e63]: In-app purchases
+          - region "Information badges" [ref=e65]:
+            - generic [ref=e66]:
+              - generic [ref=e67]:
+                - generic "Rated 3.9 stars out of five stars" [ref=e70]:
+                  - text: "3.9"
+                  - generic [ref=e71]: star
+                - generic [ref=e72]: 7.9K reviews
+              - generic [ref=e73]:
+                - generic [ref=e74]: 1M+
+                - generic [ref=e75]: Downloads
+      - generic [ref=e76]:
+        - button "Install" [ref=e84]:
+          - generic [ref=e87]: Install
+        - generic [ref=e88]:
+          - button "Share" [ref=e92] [cursor=pointer]:
+            - img [ref=e94]
+          - button "Add to wishlist" [ref=e99] [cursor=pointer]:
+            - img [ref=e101]
+    - generic [ref=e104]:
+      - generic [ref=e105]:
+        - generic [ref=e106]:
+          - generic [ref=e109]:
+            - list [ref=e110]:
+              - listitem [ref=e111]:
+                - button "Screenshot image" [ref=e113] [cursor=pointer]
+              - listitem [ref=e114]:
+                - button "Screenshot image" [ref=e116] [cursor=pointer]
+              - listitem [ref=e117]:
+                - button "Screenshot image" [ref=e119] [cursor=pointer]
+              - listitem [ref=e120]:
+                - button "Screenshot image" [ref=e122] [cursor=pointer]
+              - listitem [ref=e123]:
+                - button "Screenshot image" [ref=e125] [cursor=pointer]
+              - listitem [ref=e126]:
+                - button "Screenshot image" [ref=e128] [cursor=pointer]
+              - listitem [ref=e129]:
+                - button "Screenshot image" [ref=e131] [cursor=pointer]
+              - listitem [ref=e132]:
+                - button "Screenshot image" [ref=e134] [cursor=pointer]
+              - listitem [ref=e135]:
+                - button "Screenshot image" [ref=e137] [cursor=pointer]
+              - listitem [ref=e138]:
+                - button "Screenshot image" [ref=e140] [cursor=pointer]
+              - listitem [ref=e141]:
+                - button "Screenshot image" [ref=e143] [cursor=pointer]
+              - listitem [ref=e144]:
+                - button "Screenshot image" [ref=e146] [cursor=pointer]
+            - button "Scroll Next" [ref=e148] [cursor=pointer]:
+              - generic [ref=e150]: chevron_right
+          - generic [ref=e153]:
+            - generic [ref=e155]:
+              - heading "About this app" [level=2] [ref=e157]
+              - button "See more information on About this app" [ref=e159] [cursor=pointer]:
+                - generic [ref=e160]: arrow_forward
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - text: TiviMate IPTV Player — the effortless way to watch your playlists. Easy to use for beginners and deeply customizable for power users, TiviMate combines speed, clarity, and control in one player.
+                - text: "Key features:"
+                - text: "- Refined, intuitive and customizable interface tailored for large screens"
+                - text: "- Support for common IPTV playlist formats: M3U, Xtream Codes, Stalker Portal"
+                - text: "- TV guide (EPG): browse the full program schedule in a fast, clear grid"
+                - text: "- Multiple playlists: Effortlessly manage and switch between your playlists"
+                - text: "- Favorite channels: Bookmark your most-watched channels for instant access"
+                - text: "- Catch-up: Access past broadcasts so you never miss a show"
+                - text: "- Recording: Record your favorite shows to watch later"
+                - text: "- Search: Find channels and shows instantly with intuitive search"
+                - text: "- Parental controls: Manage access easily to ensure a safe viewing environment"
+                - text: "- Multiview: Watch multiple channels at once on a single screen"
+                - text: "- And much more"
+                - text: "Device compatibility:"
+                - text: TiviMate is designed for Android TV and remote control navigation. It is not optimized for touch devices such as phones or tablets.
+                - text: IMPORTANT
+                - text: TiviMate is a media player only and does not provide any content. TiviMate is not affiliated with any content provider and does not endorse the use of illegal content sources. To watch anything, you must add your own playlists. Any paid subscription or premium upgrade unlocks application features only; it does not include, or provide access to, any channels, streams, or media content.
+              - generic [ref=e165]:
+                - generic [ref=e166]: Updated on
+                - generic [ref=e167]: Jun 5, 2026
+              - generic [ref=e168]:
+                - generic [ref=e169]:
+                  - button "#9 top grossing video players & editors" [disabled]:
+                    - generic: "#9 top grossing video players & editors"
+                - generic [ref=e171]:
+                  - generic [ref=e173]: Video Players & Editors
+                  - link "Video Players & Editors" [ref=e174] [cursor=pointer]:
+                    - /url: /store/apps/category/VIDEO_PLAYERS
+          - generic [ref=e176]:
+            - generic [ref=e178]:
+              - heading "Data safety" [level=2] [ref=e180]
+              - generic [ref=e181] [cursor=pointer]:
+                - generic [ref=e182]: arrow_forward
+                - link "See more information on Data safety" [ref=e183]:
+                  - /url: /store/apps/datasafety?id=ar.tvplayer.tv
+            - generic [ref=e184]:
+              - text: Safety starts with understanding how developers collect and share your data. Data privacy and security practices may vary based on your use, region, and age. The developer provided this information and may update it over time.
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - img [ref=e187]
+                  - generic [ref=e188]:
+                    - text: No data shared with third parties
+                    - generic [ref=e189]:
+                      - link "Learn more" [ref=e190] [cursor=pointer]:
+                        - /url: https://support.google.com/googleplay?p=data-safety&hl=en
+                      - text: about how developers declare sharing
+                - generic [ref=e191]:
+                  - img [ref=e192]
+                  - generic [ref=e193]:
+                    - text: This app may collect these data types
+                    - generic [ref=e194]: Personal info, App activity and 2 others
+                - generic [ref=e195]:
+                  - img [ref=e196]
+                  - generic [ref=e197]: Data is encrypted in transit
+                - generic [ref=e198]:
+                  - img [ref=e199]
+                  - generic [ref=e200]: You can request that data be deleted
+                - generic [ref=e203]:
+                  - generic [ref=e205]: See details
+                  - link "See more details on data safety" [ref=e206] [cursor=pointer]:
+                    - /url: /store/apps/datasafety?id=ar.tvplayer.tv
+          - generic [ref=e208]:
+            - generic [ref=e210]:
+              - heading "Ratings and reviews" [level=2] [ref=e212]
+              - button "See more information on Ratings and reviews" [ref=e214] [cursor=pointer]:
+                - generic [ref=e215]: arrow_forward
+              - button "Ratings and reviews are verified" [ref=e219]:
+                - generic [ref=e222]: Ratings and reviews are verified
+                - generic [ref=e223]: info_outline
+            - generic [ref=e224]:
+              - list [ref=e228]:
+                - listitem [ref=e229]:
+                  - button "TV" [pressed] [ref=e230] [cursor=pointer]:
+                    - generic [ref=e232]:
+                      - generic [ref=e234]: tv
+                      - generic [ref=e235]: TV
+              - generic [ref=e236]:
+                - generic [ref=e239]:
+                  - generic [ref=e240]:
+                    - generic [ref=e241]: "3.9"
+                    - img "Rated 3.9 stars out of five stars" [ref=e242]:
+                      - img [ref=e245]
+                      - img [ref=e251]
+                      - img [ref=e257]
+                      - img [ref=e263]
+                      - img [ref=e269]
+                    - generic [ref=e273]: 4.54K reviews
+                  - generic [ref=e274]:
+                    - img "2,503 reviews for star rating 5" [ref=e275]:
+                      - generic [ref=e276]: "5"
+                    - img "755 reviews for star rating 4" [ref=e279]:
+                      - generic [ref=e280]: "4"
+                    - img "198 reviews for star rating 3" [ref=e283]:
+                      - generic [ref=e284]: "3"
+                    - img "268 reviews for star rating 2" [ref=e287]:
+                      - generic [ref=e288]: "2"
+                    - img "814 reviews for star rating 1" [ref=e291]:
+                      - generic [ref=e292]: "1"
+                - generic [ref=e295]:
+                  - generic [ref=e296]:
+                    - generic [ref=e297]:
+                      - generic [ref=e298]:
+                        - img [ref=e299]
+                        - generic [ref=e300]: Karlis M
+                      - button "More review actions" [ref=e304] [cursor=pointer]:
+                        - generic [ref=e305]: more_vert
+                    - generic [ref=e306]:
+                      - img "Rated 5 stars out of five stars" [ref=e307]:
+                        - img [ref=e310]
+                        - img [ref=e316]
+                        - img [ref=e322]
+                        - img [ref=e328]
+                        - img [ref=e334]
+                      - text: June 15, 2026
+                  - generic [ref=e338]: Best IPTV app ever. Tested around 15 different IPTV apps and all of them were missing something. This one has it all. Very nice interface and easy to use. Very customizable. Been using it about 4 years and now bought lifetime as most probably there won't be anything better. I would be happy if developer would make same app for Apple devices.
+                  - generic [ref=e339]:
+                    - generic [ref=e340]: 2 people found this review helpful
+                    - generic [ref=e341]:
+                      - generic [ref=e342]: Did you find this helpful?
+                      - generic [ref=e344]:
+                        - button "Yes" [ref=e345] [cursor=pointer]:
+                          - generic [ref=e348]: "Yes"
+                        - button "No" [ref=e349] [cursor=pointer]:
+                          - generic [ref=e352]: "No"
+                - generic [ref=e353]:
+                  - generic [ref=e354]:
+                    - generic [ref=e355]:
+                      - generic [ref=e356]:
+                        - img [ref=e357]
+                        - generic [ref=e358]: Andrea Nagy
+                      - button "More review actions" [ref=e362] [cursor=pointer]:
+                        - generic [ref=e363]: more_vert
+                    - generic [ref=e364]:
+                      - img "Rated 1 stars out of five stars" [ref=e365]:
+                        - img [ref=e368]
+                        - img [ref=e374]
+                        - img [ref=e380]
+                        - img [ref=e386]
+                        - img [ref=e392]
+                      - text: June 15, 2026
+                  - generic [ref=e396]: The admins of this app are complete jerkoff prickwads. I reach out for help when everything starts buffering after their recent update. They suggest taking it up with the stream provider. Since it started immediately after their app update and it's still playing fine on other players, I think I can isolate the source of the issue and it's NOT the stream provider. So much for lifetime subscription.
+                  - generic [ref=e397]:
+                    - generic [ref=e398]: 6 people found this review helpful
+                    - generic [ref=e399]:
+                      - generic [ref=e400]: Did you find this helpful?
+                      - generic [ref=e402]:
+                        - button "Yes" [ref=e403] [cursor=pointer]:
+                          - generic [ref=e406]: "Yes"
+                        - button "No" [ref=e407] [cursor=pointer]:
+                          - generic [ref=e410]: "No"
+                - generic [ref=e411]:
+                  - generic [ref=e412]:
+                    - generic [ref=e413]:
+                      - generic [ref=e414]:
+                        - img [ref=e415]
+                        - generic [ref=e416]: MAGA_DAD
+                      - button "More review actions" [ref=e420] [cursor=pointer]:
+                        - generic [ref=e421]: more_vert
+                    - generic [ref=e422]:
+                      - img "Rated 4 stars out of five stars" [ref=e423]:
+                        - img [ref=e426]
+                        - img [ref=e432]
+                        - img [ref=e438]
+                        - img [ref=e444]
+                        - img [ref=e450]
+                      - text: June 6, 2026
+                  - generic [ref=e454]: "the BEST I P T V player for your Android or fire stick device \".\" **PS: although the free version works perfectly fine, I highly recommend getting the premium version. it's well worth the few bucks that it cost for all the premium features !!! ***Thank you TiviMate !!!"
+                  - generic [ref=e455]:
+                    - generic [ref=e456]: 20 people found this review helpful
+                    - generic [ref=e457]:
+                      - generic [ref=e458]: Did you find this helpful?
+                      - generic [ref=e460]:
+                        - button "Yes" [ref=e461] [cursor=pointer]:
+                          - generic [ref=e464]: "Yes"
+                        - button "No" [ref=e465] [cursor=pointer]:
+                          - generic [ref=e468]: "No"
+                - button "See all reviews" [ref=e472]:
+                  - generic [ref=e475]: See all reviews
+          - generic [ref=e477]:
+            - heading "What’s new" [level=2] [ref=e481]
+            - generic [ref=e483]: "- Fixes and improvements"
+        - link "Flag as inappropriate" [ref=e487] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay/?p=report_content
+          - generic [ref=e488]: flag
+          - text: Flag as inappropriate
+      - generic [ref=e489]:
+        - generic [ref=e490]:
+          - img "Content rating" [ref=e491]
+          - generic [ref=e492]:
+            - generic [ref=e493]: PEGI 3
+            - generic [ref=e494]: Digital Purchases
+            - link "Learn more about content ratings" [ref=e495] [cursor=pointer]:
+              - /url: https://support.google.com/googleplay?p=appgame_ratings
+              - text: Learn more
+        - generic [ref=e499]:
+          - heading "App support" [level=2] [ref=e501]
+          - button "Expand" [ref=e503] [cursor=pointer]:
+            - generic [ref=e504]: expand_more
+  - contentinfo [ref=e506]:
+    - generic [ref=e508]:
+      - generic [ref=e510]:
+        - text: Google Play
+        - link "Play Pass" [ref=e512] [cursor=pointer]:
+          - /url: /store/pass/getstarted
+          - paragraph [ref=e513]: Play Pass
+        - link "Play Points" [ref=e515] [cursor=pointer]:
+          - /url: /store/points/enroll
+          - paragraph [ref=e516]: Play Points
+        - link "Gift cards" [ref=e518] [cursor=pointer]:
+          - /url: https://play.google.com/about/giftcards
+          - paragraph [ref=e519]: Gift cards
+        - link "Redeem" [ref=e521] [cursor=pointer]:
+          - /url: /redeem
+          - paragraph [ref=e522]: Redeem
+        - link "Refund policy" [ref=e524] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay/answer/134336
+          - paragraph [ref=e525]: Refund policy
+      - generic [ref=e527]:
+        - text: Kids & family
+        - link "Parent Guide" [ref=e529] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay?p=pff_parentguide
+          - paragraph [ref=e530]: Parent Guide
+        - link "Family sharing" [ref=e532] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay/answer/7007852
+          - paragraph [ref=e533]: Family sharing
+    - generic [ref=e534]:
+      - link "Terms of Service" [ref=e536] [cursor=pointer]:
+        - /url: https://play.google.com/intl/en-US_uk/about/play-terms.html
+        - paragraph [ref=e537]: Terms of Service
+      - link "Privacy" [ref=e539] [cursor=pointer]:
+        - /url: https://policies.google.com/privacy
+        - paragraph [ref=e540]: Privacy
+      - link "About Google Play" [ref=e542] [cursor=pointer]:
+        - /url: https://support.google.com/googleplay/?p=about_play
+        - paragraph [ref=e543]: About Google Play
+      - link "Developers" [ref=e545] [cursor=pointer]:
+        - /url: http://developer.android.com/index.html
+        - paragraph [ref=e546]: Developers
+      - link "Google Store" [ref=e548] [cursor=pointer]:
+        - /url: https://store.google.com/?playredirect=true&utm_source=play&utm_medium=google_oo&utm_campaign=GS106288
+        - paragraph [ref=e549]: Google Store
+      - button "United Kingdom (English (United States))" [ref=e551]:
+        - generic [ref=e552]:
+          - img [ref=e553]
+          - generic [ref=e554]: United Kingdom (English (United States))
+      - generic [ref=e555]:
+        - generic [ref=e556]: All prices include VAT.
+        - generic [ref=e557]:
+          - text: For trader and right of withdrawal information, see
+          - link "Google Play Terms of Service" [ref=e558] [cursor=pointer]:
+            - /url: https://play.google.com/intl/all_gb/about/play-terms/
+          - text: .

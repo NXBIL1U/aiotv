@@ -1,10 +1,12 @@
 package com.itrepos.aiotv.ui.screen.live
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,7 +38,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** A live-channel row: logo + name + now/next programme + ★ favourite toggle. */
+/**
+ * A Sky-style live-channel row: channel number + logo, then now (HH:mm · title) with a progress
+ * bar, then next (HH:mm · title), and a trailing ★ favourite toggle.
+ */
 @Composable
 fun ChannelRow(
     channel: Channel,
@@ -47,11 +52,23 @@ fun ChannelRow(
     modifier: Modifier = Modifier,
 ) {
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     FocusableCard(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Channel number (Sky-style), fixed-width so logos line up.
+            Box(Modifier.width(34.dp), contentAlignment = Alignment.Center) {
+                if (channel.channelNo > 0) {
+                    Text(
+                        channel.channelNo.toString(),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = muted,
+                    )
+                }
+            }
             val fallback = ColorPainter(SurfaceElevated)
             AsyncImage(
                 model = channel.logoUrl,
@@ -76,28 +93,48 @@ fun ChannelRow(
                 )
                 val now = nowNext?.now
                 val next = nowNext?.next
-                when {
-                    now != null -> Text(
-                        "● ${now.title}",
+                if (now != null) {
+                    Text(
+                        "${timeFmt.format(Date(now.startMs))} · ${now.title}",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall,
-                        color = AccentPrimary,
+                        color = Color.White,
                     )
-                    next == null -> Text(
-                        "—",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // Progress bar through the current programme.
+                    val nowMs = System.currentTimeMillis()
+                    val span = (now.endMs - now.startMs).toFloat()
+                    if (span > 0f) {
+                        val frac = ((nowMs - now.startMs) / span).coerceIn(0f, 1f)
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 3.dp, bottom = 1.dp)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.20f)),
+                        ) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(frac)
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(AccentPrimary),
+                            )
+                        }
+                    }
                 }
                 if (next != null) {
                     Text(
-                        "Next ${timeFmt.format(Date(next.startMs))} · ${next.title}",
+                        "${timeFmt.format(Date(next.startMs))} · ${next.title}",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = muted,
                     )
+                }
+                if (now == null && next == null) {
+                    Text("—", style = MaterialTheme.typography.labelSmall, color = muted)
                 }
             }
             // ★ favourite toggle
@@ -105,7 +142,7 @@ fun ChannelRow(
                 Icon(
                     imageVector = if (isFavourite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                     contentDescription = if (isFavourite) "Remove from favourites" else "Add to favourites",
-                    tint = if (isFavourite) AccentPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (isFavourite) AccentPrimary else muted,
                 )
             }
         }

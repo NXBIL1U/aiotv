@@ -26,7 +26,7 @@ import com.itrepos.aiotv.data.local.db.entity.RecentlyWatchedEntity
         RecentlyWatchedEntity::class,
         CacheMetaEntity::class,
     ],
-    version = 1,
+    version = 2, // v2: added ChannelEntity.channelNo (destructive fallback re-fetches the cache)
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

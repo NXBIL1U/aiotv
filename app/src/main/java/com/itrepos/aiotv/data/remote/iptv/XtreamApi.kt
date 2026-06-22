@@ -58,6 +58,7 @@ data class XtreamStream(
     @SerialName("category_id") val categoryId: String? = null,
     @SerialName("epg_channel_id") val epgChannelId: String? = null,
     @SerialName("stream_type") val streamType: String? = null,
+    @SerialName("num") val num: Int = 0,
 )
 
 @Serializable

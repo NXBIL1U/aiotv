@@ -10,5 +10,7 @@ data class Channel(
     // Unified category filter key: Xtream `category_id` or M3U `group-title`. Matches
     // ChannelCategory.id so filtering is source-agnostic.
     val categoryKey: String = "",
+    /** Display channel number (Xtream `num` / M3U `tvg-chno`); 0 if unknown. */
+    val channelNo: Int = 0,
     val isFavourite: Boolean = false,
 )
