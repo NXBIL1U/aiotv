@@ -2,86 +2,231 @@ package com.itrepos.aiotv.ui.screen.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.itrepos.aiotv.data.repository.MetaRepository
+import com.itrepos.aiotv.data.repository.SeriesMeta
 import com.itrepos.aiotv.data.repository.StremioRepository
 import com.itrepos.aiotv.data.repository.TorBoxRepository
+import com.itrepos.aiotv.domain.StreamRanker
+import com.itrepos.aiotv.domain.model.Episode
 import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.domain.model.Stream
 import com.itrepos.aiotv.domain.usecase.GetStreamsUseCase
+import com.itrepos.aiotv.domain.usecase.ResolveStreamUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+
+enum class DetailKind { MOVIE, SERIES }
 
 data class DetailState(
     val isLoading: Boolean = true,
+    val kind: DetailKind = DetailKind.MOVIE,
+    // Movie path
     val meta: MediaItem? = null,
     val streams: List<Stream> = emptyList(),
     val resolvedUrl: String? = null,
-    val error: String? = null,
     val resolving: Boolean = false,
+    // Series path
+    val series: SeriesMeta? = null,
+    val selectedSeason: Int? = null,
+    val episodeStreams: List<Stream> = emptyList(),
+    val sourcesForEpisode: Episode? = null,
+    val resolvingEpisode: Episode? = null,
+    // Shared
+    val error: String? = null,
 )
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
     private val stremioRepo: StremioRepository,
+    private val metaRepo: MetaRepository,
     private val getStreams: GetStreamsUseCase,
     private val torBoxRepo: TorBoxRepository,
+    private val resolveStream: ResolveStreamUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = _state.asStateFlow()
 
+    /** Short auto-advance budget for torrent picks (cached picks resolve instantly anyway). */
+    private val resolveTimeoutMs = 20_000L
+
     fun load(type: String, id: String) {
         viewModelScope.launch {
             _state.value = DetailState(isLoading = true)
-            try {
-                val meta = stremioRepo.getMeta(type, id)
-                val streams = getStreams(type, id)
-                val hashes = streams.mapNotNull { it.infoHash }
-                val cached = if (hashes.isNotEmpty()) torBoxRepo.checkCached(hashes) else emptyMap()
-                val ranked = streams.map { s ->
-                    s.copy(isCached = cached[s.infoHash?.lowercase()] == true)
-                }.sortedByDescending { if (it.isCached) 1 else 0 }
-                _state.value = DetailState(
-                    isLoading = false,
-                    meta = meta?.let { m ->
-                        MediaItem(m.id, m.type, m.name, m.description, m.poster, m.background, m.year?.take(4)?.toIntOrNull(), m.genres, m.imdbRating)
-                    },
-                    streams = ranked,
-                )
-            } catch (e: Exception) {
-                _state.value = DetailState(isLoading = false, error = e.message)
+            if (type == "series") {
+                loadSeries(id)
+            } else {
+                loadMovie(type, id)
             }
         }
     }
 
+    private suspend fun loadSeries(id: String) {
+        val series = metaRepo.getSeriesMeta(id)
+        if (series == null) {
+            // Cinemeta down / no videos: show the title (id) with an "unavailable" state, don't crash.
+            _state.value = DetailState(
+                isLoading = false,
+                kind = DetailKind.SERIES,
+                series = null,
+                error = "Episodes unavailable — try again later",
+            )
+            return
+        }
+        _state.value = DetailState(
+            isLoading = false,
+            kind = DetailKind.SERIES,
+            series = series,
+            selectedSeason = series.seasons.firstOrNull(),
+            meta = series.item,
+        )
+    }
+
+    private suspend fun loadMovie(type: String, id: String) {
+        try {
+            val meta = stremioRepo.getMeta(type, id)
+            val streams = getStreams(type, id)
+            val hashes = streams.mapNotNull { it.infoHash }
+            val cached = if (hashes.isNotEmpty()) torBoxRepo.checkCached(hashes) else emptyMap()
+            val ranked = StreamRanker.rank(
+                streams.map { s -> s.copy(isCached = cached[s.infoHash?.lowercase()] == true) }
+            )
+            _state.value = DetailState(
+                isLoading = false,
+                kind = DetailKind.MOVIE,
+                meta = meta?.let { m ->
+                    MediaItem(
+                        id = m.id,
+                        type = m.type,
+                        name = m.name,
+                        description = m.description,
+                        posterUrl = m.poster,
+                        backdropUrl = m.background,
+                        year = m.year?.take(4)?.toIntOrNull(),
+                        genres = m.genres,
+                        imdbRating = m.imdbRating,
+                    )
+                },
+                streams = ranked,
+            )
+        } catch (e: Exception) {
+            _state.value = DetailState(isLoading = false, kind = DetailKind.MOVIE, error = e.message)
+        }
+    }
+
+    fun selectSeason(season: Int) {
+        _state.value = _state.value.copy(selectedSeason = season)
+    }
+
+    /**
+     * Tap-to-play: rank this episode's sources (cached first), then resolve candidates in order,
+     * auto-advancing past any that fail or time out. On success, plays with an episode-keyed
+     * progressId so resume is per-episode. If nothing resolves, surfaces the Sources sheet.
+     */
+    fun playEpisode(episode: Episode, onPlay: (url: String, title: String, progressId: String) -> Unit) {
+        if (_state.value.resolvingEpisode != null) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(resolvingEpisode = episode, error = null, sourcesForEpisode = null)
+            val raw = try {
+                getStreams("series", episode.id)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(resolvingEpisode = null, error = e.message)
+                return@launch
+            }
+            val hashes = raw.mapNotNull { it.infoHash }
+            val cached = if (hashes.isNotEmpty()) {
+                runCatching { torBoxRepo.checkCached(hashes) }.getOrDefault(emptyMap())
+            } else {
+                emptyMap()
+            }
+            val ranked = StreamRanker.rank(
+                raw.map { s -> s.copy(isCached = cached[s.infoHash?.lowercase()] == true) }
+            )
+            _state.value = _state.value.copy(episodeStreams = ranked)
+
+            val url = resolveBestCandidate(ranked)
+            if (url != null) {
+                _state.value = _state.value.copy(resolvingEpisode = null)
+                onPlay(url, episodeTitle(episode), episode.id)
+            } else {
+                // Nothing resolved automatically — fall back to a manual pick.
+                _state.value = _state.value.copy(resolvingEpisode = null, sourcesForEpisode = episode)
+            }
+        }
+    }
+
+    /** Iterate ranked candidates (cached first), resolving each with a short timeout. */
+    private suspend fun resolveBestCandidate(ranked: List<Stream>): String? {
+        for (stream in ranked) {
+            val result = if (stream.url != null) {
+                // Direct URL — resolves instantly, no timeout needed.
+                resolveStream(stream)
+            } else {
+                // Torrent — wrap in a short timeout so a dead pick auto-advances fast.
+                withTimeoutOrNull(resolveTimeoutMs) { resolveStream(stream) }
+            }
+            val url = result?.getOrNull()
+            if (url != null) return url
+        }
+        return null
+    }
+
+    /** Open the Sources sheet for manual selection. */
+    fun showSources(episode: Episode) {
+        _state.value = _state.value.copy(sourcesForEpisode = episode)
+    }
+
+    fun dismissSources() {
+        _state.value = _state.value.copy(sourcesForEpisode = null)
+    }
+
+    /** Manual pick from the Sources sheet — uses the longer poll budget (no auto-advance timeout). */
+    fun playSpecificStream(
+        stream: Stream,
+        episode: Episode,
+        onPlay: (url: String, title: String, progressId: String) -> Unit,
+    ) {
+        if (_state.value.resolvingEpisode != null) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(resolvingEpisode = episode, sourcesForEpisode = null, error = null)
+            val url = resolveStream(stream).getOrNull()
+            _state.value = _state.value.copy(resolvingEpisode = null)
+            if (url != null) {
+                onPlay(url, episodeTitle(episode), episode.id)
+            } else {
+                _state.value = _state.value.copy(error = "Failed to play this source", sourcesForEpisode = episode)
+            }
+        }
+    }
+
+    /** Movie-path resolve (unchanged behaviour; routes through ResolveStreamUseCase). */
     fun resolveStream(stream: Stream, onResolved: (String) -> Unit) {
         if (_state.value.resolving) return
         viewModelScope.launch {
             _state.value = _state.value.copy(resolving = true, error = null)
-            try {
-                val url = stream.url
-                    ?: run {
-                        val infoHash = stream.infoHash
-                            ?: throw IllegalStateException("Stream has no URL or info hash")
-                        val torrentId = torBoxRepo.createTorrent("magnet:?xt=urn:btih:$infoHash")
-                            ?: throw IllegalStateException("Failed to create torrent")
-                        val info = torBoxRepo.pollUntilReady(torrentId)
-                            ?: throw IllegalStateException("Torrent did not become ready")
-                        val fileId = info.files.firstOrNull()?.id
-                            ?: throw IllegalStateException("Torrent has no playable files")
-                        torBoxRepo.getDownloadUrl(torrentId, fileId)
-                    }
-                _state.value = _state.value.copy(resolving = false, resolvedUrl = url)
-                onResolved(url)
-            } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    resolving = false,
-                    error = e.message ?: "Failed to resolve stream",
-                )
-            }
+            val result = resolveStream(stream)
+            result.fold(
+                onSuccess = { url ->
+                    _state.value = _state.value.copy(resolving = false, resolvedUrl = url)
+                    onResolved(url)
+                },
+                onFailure = { e ->
+                    _state.value = _state.value.copy(
+                        resolving = false,
+                        error = e.message ?: "Failed to resolve stream",
+                    )
+                },
+            )
         }
+    }
+
+    private fun episodeTitle(episode: Episode): String {
+        val show = _state.value.series?.item?.name ?: _state.value.meta?.name ?: "Episode"
+        return "$show S${episode.season}·E${episode.number}"
     }
 }
