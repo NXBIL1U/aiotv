@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -78,11 +79,21 @@ fun PlayerScreen(
     // FocusRequester for TV: Play-now button gets initial D-pad focus
     val playNowFocus = remember { FocusRequester() }
 
-    // The now-playing session (null for live channels / direct plays). When it matches this route's
-    // progressId, the controller's currentUrl wins (it may have failed over); otherwise the route
-    // url is the baseline (live IPTV, process-death fallback) and there is no failover/next.
+    // The now-playing session (null for live channels / direct plays).
+    // We latch sessionActive=true the moment the controller holds a session for THIS play
+    // (progressId matches the route arg at entry). Once latched, we follow the controller's
+    // emitted state even as progressId changes (e.g. after advanceToNextEpisode()). This
+    // means the player correctly swaps to the next episode's URL/progressId without falling
+    // back to the original route URL.
+    //
+    // Live channels / direct plays: controller state is null or has a different progressId at
+    // entry, so sessionActive stays false and route url is used (no session, no failover/next).
     val playbackState by viewModel.playbackState.collectAsState()
-    val session = playbackState?.takeIf { it.progressId == progressId }
+    var sessionActive by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (playbackState?.progressId == progressId) sessionActive = true
+    }
+    val session = if (sessionActive) playbackState else null
     val playUrl = session?.currentUrl ?: url
     val playProgressId = session?.progressId ?: progressId
     // The error listener is registered once (keyed on exoPlayer); read the latest session via this.
