@@ -94,6 +94,16 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - **Network note:** the owner's UK ISP (Virgin Media) **blocks the IPTV provider's IP range**
   (`149.18.45.x`) — confirmed by TCP-unreachable from Virgin vs. reachable over a VPN. So live TV
   needs a VPN on the owner's network during ISP IPTV blocking (common around live football).
+- **VOD series spine + Netflix Detail page (2026-06-22, branch `feat/vod-series-spine`):**
+  bare-series stream bug fixed (per-episode `ttID:S:E` requests); Cinemeta internal meta provider
+  for movies + series (host fallback); `StreamRanker` (cached `[TB+]` → English → quality →
+  seeders); 20 s auto-advance past dead torrent picks; per-episode resume (`progressId` route
+  param); Netflix Detail page (hero backdrop, title/year/genres/rating, resume-aware Play, Sources
+  sheet, season selector, episode list with thumbnails + resume bars, two-pane ≥840dp, TV D-pad
+  Sources list). Movie metadata also resolves via Cinemeta (titles/posters/overviews). Dark +
+  Netflix-red theme foundation (`ui/theme/`) shipped. Validated on phone emulator with VPN off:
+  Rick & Morty S1E1 plays + resumes (00:59/22:01); Aftersun title + overview; two-pane landscape.
+  _TV-emulator pass still pending._
 
 ---
 
@@ -112,6 +122,11 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - [x] **Live TV / IPTV** — validated on phone emulator: Xtream provider (`get.php` → `player_api.php`
       live JSON), 27.5k channels load in ~1 s, a channel plays via raw MPEG-TS (H.264 video
       confirmed). Audio decodes but emulator is silent — **confirm audio on hardware.** _(2026-06-21)_
+- [x] **Series Detail + episode playback** — Rick & Morty S1E1 plays and resumes; resume bar +
+      "Resume S1·E1" shown; two-pane landscape confirmed; Aftersun (movie) shows title + overview.
+      No crashes. Validated on phone emulator with VPN off. _(2026-06-22)_
+- [ ] **TV emulator** — re-validate Detail + episode playback + D-pad Sources list after series
+      spine work. _(pending)_
 - [ ] **Fire TV** — must be tested on hardware (no Fire OS emulator exists).
 
 ## 🐞 Known bugs to fix
@@ -127,10 +142,10 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       _(v2 note: `LiveTvRepository.clearCache()` now exists and is scoped to cache tables only —
       preserves favourites/recents — but is not yet called on a source/settings change.)_
 - [ ] `[P1]` **Settings title under status bar** — missing safe-area/window-insets padding.
-- [ ] `[P2]` **Series usability** — series now load, but (a) Detail shows raw id (no metadata
-      provider) and (b) there's **no season/episode picker** + no auto-select. Build the
-      Netflix-style flow per **DESIGN §6a** (Cinemeta built-in meta, season/episode list,
-      one-tap auto-select + failover). _(found 2026-06-21)_
+- [x] `[P2]` **Series usability** — ~~Detail shows raw id; no season/episode picker; no
+      auto-select~~ — fixed (2026-06-22, branch `feat/vod-series-spine`): Cinemeta meta, Netflix
+      Detail with season selector + episode list + thumbnails + resume bars, `StreamRanker`
+      auto-selects best cached source, 20 s auto-advance on dead picks. _(resolved 2026-06-22)_
 - [ ] `[P2]` **Continue Watching resume broken for TorBox** — keyed on the ephemeral resolved
       URL; store a stable content id (+ title/poster) in `WatchProgress`.
 - [ ] `[P2]` **No hinge/fold posture awareness** — player should avoid the fold crease
@@ -152,15 +167,39 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       cache) and only clears `isLoading` once all rails finish. Fix: drop the channel load from
       Home + let each rail fill independently. Needs a brainstorm: how "networks" map to the
       configured Stremio addon catalogs (one row per catalog? grouped?). See DESIGN §8.
-- [ ] `[P4]` **App-wide Netflix-style navigation + visual refresh** (workstream, web-validated). Three
-      parts: (A) **dark + Netflix-red theme** replacing the blue — but per a11y, interactive accents
-      use the Material-Theme-Builder tonal red, raw `#E50914` only on brand surfaces; (B) a **wordless,
-      distinctive app icon** (concepts in `docs/superpowers/icon-concepts/`, lean "stacked streams");
-      (C) a **persistent nav shell** — `NavigationSuiteScaffold` (phone/foldable) + `androidx.tv`
-      `NavigationDrawer` (TV), hiding on player/Detail (immersive), moving chrome out of `HomeScreen`.
-      Adopt a Compose icon pack (Lucide/Tabler) for in-app icons. Spec:
-      `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`. Theme + icon are quick wins;
-      nav shell is its own effort. _(noted 2026-06-22)_
+- [~] `[P4]` **App-wide Netflix-style navigation + visual refresh** (workstream, web-validated). Spec:
+      `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`.
+  - [x] **(A) Dark + Netflix-red theme foundation** — `ui/theme/` (`Color.kt`, `Theme.kt`): tonal
+        red for interactive (Material-Theme-Builder dark `primary`); raw `#E50914` on brand surfaces
+        only. Shipped with the series-spine work (2026-06-22). _(done)_
+  - [ ] **(B) Wordless app icon** — concept D "stacked streams" (decided 2026-06-22); refine to
+        final adaptive icon (foreground + `<monochrome>` layer). _(pending)_
+  - [ ] **(C) Persistent nav shell** — `NavigationSuiteScaffold` (phone/foldable) + `androidx.tv`
+        `NavigationDrawer` (TV); immersive on player/Detail; move chrome out of `HomeScreen`.
+        Adopt Lucide/Tabler Compose icon pack. _(pending — architectural piece)_
+
+## 🎬 VOD follow-ups (from series spine, 2026-06-22)
+
+- [ ] `[P2]` **Auto-next-episode / binge** — after an episode ends, auto-advance to the next
+      episode. Use the `bingeGroup` field in stream metadata to group episodes; hook into the
+      existing Player 20 s auto-advance mechanism.
+- [ ] `[P2]` **VOD search — needs a search-capable meta source** — current search returns only
+      IPTV channels. Cinemeta is an internal meta provider but is not installed as a user addon
+      search catalog; the "Streaming Catalogs" addon is catalog-only. Install or wire a
+      Cinemeta-style search catalog/addon to make VOD titles discoverable via search.
+- [ ] `[P3]` **TV-emulator validation pass** — re-validate Detail + episode playback, D-pad
+      Sources list, and focus behaviour on the TV emulator after series-spine work. (Only phone
+      emulator validated so far.)
+- [ ] `[P2]` **Player-level auto-advance on playback error** — the current 20 s auto-advance is
+      at source-resolve time (past dead torrent picks); add a parallel path that triggers if
+      ExoPlayer raises a `PlayerError` mid-playback, advancing to the next `StreamRanker` candidate
+      without requiring a Sources sheet tap.
+- [ ] `[P2]` **MovieMetaFallbackTest** — add a unit test covering movie metadata resolution via
+      Cinemeta (similar to the series episode-list path) to ensure Cinemeta fallback parity for
+      movies stays intact.
+- [ ] `[P0]` **Confirm live + VOD audio on hardware** — emulator plays video but has no host
+      audio; verify both live IPTV and VOD playback audio on Fire TV hardware (or a physical
+      Android phone/tablet). Emulator silence is known-harmless. _(emulator-no-host-audio)_
 
 ## 🧹 Data-layer hardening
 

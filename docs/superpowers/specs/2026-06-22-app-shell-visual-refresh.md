@@ -1,9 +1,18 @@
 # App-wide Netflix-style navigation + visual refresh (workstream spec)
 
-_Status: **draft, web-validated, NOT started** (2026-06-22). Realises the DESIGN §1-2 "Netflix-grade"
-north-star at the **app-shell** level — complements the per-surface work (Live TV ✅; VOD §6a +
-Home network-categories queued). Three independent sub-areas; ship in the order below. Each gets
-its own brainstorm/build; this is the umbrella + validated approach._
+_Status: **partly delivered** (2026-06-22). Realises the DESIGN §1-2 "Netflix-grade"
+north-star at the **app-shell** level — complements the per-surface work (Live TV ✅; VOD series
+spine + Netflix Detail ✅ 2026-06-22; Home network-categories queued). Three independent sub-areas;
+ship in the order below. Each gets its own brainstorm/build; this is the umbrella + validated approach._
+
+**Delivery status:**
+- **§A Dark + Netflix-red theme foundation — ✅ shipped** (branch `feat/vod-series-spine`,
+  2026-06-22): `ui/theme/` (`Color.kt`, `Theme.kt`) updated; tonal red for interactive per a11y;
+  raw `#E50914` on brand surfaces only. Delivered alongside the series-spine + Netflix Detail work.
+- **§B App icon — pending.** Owner picked concept D "stacked streams" (2026-06-22); refine to final
+  adaptive icon.
+- **§C Persistent nav shell — pending.** `NavigationSuiteScaffold` (phone/foldable) +
+  `androidx.tv` `NavigationDrawer` (TV); architectural piece. Per-screen polish also pending.
 
 ## Goal
 One cohesive, Netflix-grade product across every surface: a **persistent navigation shell**, a

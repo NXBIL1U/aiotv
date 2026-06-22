@@ -146,14 +146,34 @@ player listener.
   Torrentio** side, plus a hero carousel and **Continue Watching that actually resumes**. **No IPTV
   "live now" rail on Home** (live TV lives only in the Live TV tab). _(Supersedes the earlier
   "unified VOD + live" Home idea in §4. Open design Q: how "networks" map to the configured addon
-  catalogs. Removing the current 27.5k-channel Home load also fixes Home's slow first paint.)_
-- **Detail:** **auto-select + one-tap play** (no manual stream list) — see §6a. Movies: Play/
-  Resume. Series: season selector + episode list with thumbnails. Discreet "Sources/quality"
-  override is hidden by default.
-- **App shell & identity (planned, see `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`):**
-  a **persistent Netflix-style nav shell** (NavigationSuiteScaffold on phone/foldable + `androidx.tv`
-  NavigationDrawer on TV; immersive on player/Detail), a **dark + Netflix-red** palette (tonal red
-  for interactive per a11y; raw `#E50914` for brand), and a **wordless distinctive app icon**.
+  catalogs. The **"Streaming Catalogs" addon** already installed provides exactly these network
+  catalogs — Netflix, Disney+, Prime Video, Apple TV+, HBO Max, Crunchyroll, ITVX, BBC iPlayer,
+  Channel 4 (movie + series rows each) — and is the intended data source for this redesign.
+  Removing the current 27.5k-channel Home load also fixes Home's slow first paint.)_
+- **Detail (VOD series + movies — shipped 2026-06-22, branch `feat/vod-series-spine`):**
+  **Netflix-style Detail page** — hero backdrop, title · year · genres · ★rating, resume-aware
+  Play button, discreet Sources override, overview, season selector (specials last), episode list
+  with thumbnails + per-episode resume bars. **Two-pane at ≥840dp** (Fold/wide); TV gets a
+  D-pad-friendly Sources list. Movie Detail preserved (movies now show real title + overview via
+  Cinemeta, not the raw IMDb id). **Cinemeta** is the internal meta provider for both movies and
+  series (host fallback: `cinemeta-live.strem.io` → `v3-cinemeta.strem.fun`). Series streams are
+  requested per-episode (`ttID:S:E`, fixing the bare-series stream bug). A pure `StreamRanker`
+  orders sources (cached `[TB+]` → English → quality → seeders); tapping an episode auto-plays the
+  best cached source (20 s auto-advance past dead torrent picks; Sources sheet fallback).
+  Per-episode resume is keyed on episode id (Player `progressId` route param).
+  Validated: Rick & Morty S1E1 plays + resumes; Aftersun shows title + overview; two-pane landscape.
+- **VOD search gap (found 2026-06-22):** VOD search currently returns only IPTV channels — there is
+  no search-capable VOD meta source. The "Streaming Catalogs" addon is catalog-only; Cinemeta is not
+  installed as a user addon search catalog. (This likely explains an earlier bug report: tapping a
+  live "HIMYM" channel rather than the series.) Fixing VOD search requires a Cinemeta-style
+  search-capable meta addon.
+- **App shell & identity — theme foundation shipped; nav shell + icon pending.**
+  The **dark + Netflix-red theme foundation** (`ui/theme/`) shipped as part of the series-spine
+  work (2026-06-22): tonal red for interactive per a11y; raw `#E50914` on brand surfaces only.
+  Remaining: **persistent Netflix-style nav shell** (NavigationSuiteScaffold on phone/foldable +
+  `androidx.tv` NavigationDrawer on TV; immersive on player/Detail), **wordless distinctive app
+  icon** (concept D "stacked streams"), and per-screen polish.
+  See `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`.
 - **Live/EPG:** time-grid guide navigable by D-pad and touch; now/next; channel groups &
   favourites; catch-up where the provider supports it.
 - **Search:** instant results across VOD + channels; voice on TV; recent searches.
@@ -191,10 +211,19 @@ reflect the real state — don't read this list strictly top-to-bottom._
   cache-invalidation-on-settings-change.
 - **Exit:** adding/removing a source updates the UI live; first-run wizard configures the app.
 
-### Phase 2 — Core experience (VOD) _(not started — the next major gap)_
-- **Goal:** make browsing → detail → play feel premium (Netflix-style; see §6a). _(This is the
-  real "what's next" — Live TV jumped ahead of it. Overlaps the queued Home → VOD network
-  categories work.)_
+### Phase 2 — Core experience (VOD) _(partly done — series spine + Detail shipped; search + binge pending)_
+- **Status (2026-06-22):** **Series spine + Netflix Detail page shipped** (branch
+  `feat/vod-series-spine`): Cinemeta built-in meta (movies + series), per-episode stream requests,
+  `StreamRanker`, auto-play best cached source, per-episode resume, Netflix-style Detail
+  (backdrop/hero, season selector, episode list with thumbnails + resume bars, two-pane ≥840dp,
+  TV D-pad Sources list). Movie metadata also resolved via Cinemeta (titles/posters/overviews).
+  Dark + Netflix-red theme foundation delivered (`ui/theme/`).
+  Still TODO: **VOD search** (needs a search-capable meta source — Cinemeta-style catalog; current
+  search returns only IPTV channels); **auto-next-episode / binge** (use stream `bingeGroup`);
+  Home → VOD network categories (nabz); quality preference (1080p/4K setting + per-play switch);
+  player subtitles/audio track; fold/hinge posture awareness.
+- **Goal:** make browsing → detail → play feel premium (Netflix-style; see §6a). _(Overlaps the
+  queued Home → VOD network categories work.)_
 - **Deliverables:** **auto-select best-working stream + failover** (no manual list); **Cinemeta
   as built-in meta provider**; movie Detail (Play/Resume); **series Detail with season selector
   + episode list** (`meta.videos[]`); **quality preference** (default 1080p, 1080p/4K setting +
@@ -293,3 +322,18 @@ cohere: a single category filter ("All Channels ▾"; region moved to Settings),
 (channel number + now/next times + a progress bar), and a persistent D-pad category rail on
 wide/TV. Open follow-ups: a TV-emulator pass, and the app-wide nav model (only Home currently
 shows the rail/bottom bar — see §4 IA).
+
+The **VOD series spine + Netflix-style Detail page** then ships (branch `feat/vod-series-spine`,
+2026-06-22), delivering the core of Phase 2: Cinemeta as the internal meta provider for both
+movies and series (host fallback: `cinemeta-live.strem.io` → `v3-cinemeta.strem.fun`); per-episode
+stream requests (`ttID:S:E`, fixing the bare-series stream bug); `StreamRanker` (cached `[TB+]` →
+English → quality → seeders); auto-play best cached source with 20 s auto-advance past dead picks;
+per-episode resume (`progressId` route param); Netflix Detail page (hero backdrop, title/year/
+genres/rating, resume-aware Play, Sources sheet, season selector, episode thumbnails + resume bars,
+two-pane ≥840dp, TV D-pad Sources list). Movie metadata also resolves via Cinemeta (titles/posters/
+overviews — previously movies showed the raw IMDb id). The **dark + Netflix-red theme foundation**
+(`ui/theme/`) shipped alongside. Validated on phone emulator with VPN off: Rick & Morty S1E1 plays
++ resumes (00:59/22:01), resume bar + "Resume S1·E1" shown; Aftersun shows title + overview; two-
+pane landscape confirmed. No crashes. _TV-emulator pass still pending._
+**VOD search gap noted:** search currently returns only IPTV channels — there is no search-capable
+VOD meta source installed. Fixing this needs a Cinemeta-style search catalog/addon (see §8).
