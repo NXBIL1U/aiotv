@@ -2,17 +2,22 @@ package com.itrepos.aiotv.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Background = Color(0xFF0A0A0F)
-val SurfaceCard = Color(0xFF161620)
-val SurfaceElevated = Color(0xFF1E1E2E)
-val SurfaceGlass = Color(0x801E1E2E)
-val AccentPrimary = Color(0xFF6C63FF)
-val AccentSecondary = Color(0xFFE94560)
-val OnBackground = Color(0xFFF0F0F8)
-val OnSurface = Color(0xFFCCCCD8)
-val OnSurfaceMuted = Color(0xFFAEAEC8)
-val FocusGlow = Color(0x806C63FF)
-val CachedBadge = Color(0xFF00C853)
-val LiveDot = Color(0xFFFF1744)
-val ProgressBar = Color(0xFF6C63FF)
-val Outline = Color(0xFF2A2A3E)
+// Neutral near-black surfaces (Netflix-like), layered elevations
+val Background = Color(0xFF0B0B0B)
+val SurfaceCard = Color(0xFF1A1A1A)
+val SurfaceElevated = Color(0xFF242424)
+val SurfaceGlass = Color(0xCC141414)
+
+// Interactive accent = tonal red (a11y-safe on dark); brand red reserved for brand moments only
+val AccentPrimary = Color(0xFFE5403F)   // tonal/interactive red
+val AccentSecondary = Color(0xFFB81D24) // deep red (containers/pressed)
+val NetflixRed = Color(0xFFE50914)      // BRAND ONLY (wordmark/splash) — not for body text/contrast-critical UI
+
+val OnBackground = Color(0xFFF5F5F5)
+val OnSurface = Color(0xFFD6D6D6)
+val OnSurfaceMuted = Color(0xFF9A9A9A)
+val FocusGlow = Color(0x80E5403F)
+val CachedBadge = Color(0xFF46D369)     // Netflix-ish green for "cached/available"
+val LiveDot = Color(0xFFE50914)
+val ProgressBar = Color(0xFFE50914)
+val Outline = Color(0xFF333333)
