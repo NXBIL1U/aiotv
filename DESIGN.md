@@ -141,8 +141,12 @@ player listener.
 
 - **Onboarding:** detect what's configured; guide TorBox + first addon + (optional) IPTV.
   TV: QR / phone-companion entry to avoid on-remote typing.
-- **Home:** hero carousel, horizontally-scrolling rails with stable focus; "Live now" rail
-  shows current programme per channel; Continue Watching that actually resumes.
+- **Home:** **VOD-only, organised by "network"** (owner decision, 2026-06-22, `nabz`): rows per
+  provider/network — Netflix, Disney, etc. — sourced from the **Stremio addon catalogs → TorBox/
+  Torrentio** side, plus a hero carousel and **Continue Watching that actually resumes**. **No IPTV
+  "live now" rail on Home** (live TV lives only in the Live TV tab). _(Supersedes the earlier
+  "unified VOD + live" Home idea in §4. Open design Q: how "networks" map to the configured addon
+  catalogs. Removing the current 27.5k-channel Home load also fixes Home's slow first paint.)_
 - **Detail:** **auto-select + one-tap play** (no manual stream list) — see §6a. Movies: Play/
   Resume. Series: season selector + episode list with thumbnails. Discreet "Sources/quality"
   override is hidden by default.

@@ -143,6 +143,16 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - [ ] `[P2]` **TV: Settings auto-focuses first field** → on-screen keyboard pops immediately
       on entry; should require an explicit tap. _(found 2026-06-21)_
 
+- [ ] `[P2]` **Home screen → VOD network categories, NO live channels** (owner `nabz`, 2026-06-22).
+      Home should show **network/provider rows (Netflix, Disney, …) from the VOD side (Stremio
+      addon catalogs → TorBox/Torrentio)** + hero + Continue Watching; **remove the IPTV "live now"
+      rail** entirely (live TV stays in the Live TV tab). **Also fixes Home's slow first paint:**
+      `HomeViewModel.loadContent()` awaits `getChannels()` (→ `LiveTvRepository.getChannelsOnce()`,
+      which loads **all 27.5k** channels mapped to domain, plus a ~36s 7.6 MB refetch on a stale
+      cache) and only clears `isLoading` once all rails finish. Fix: drop the channel load from
+      Home + let each rail fill independently. Needs a brainstorm: how "networks" map to the
+      configured Stremio addon catalogs (one row per catalog? grouped?). See DESIGN §8.
+
 ## 🧹 Data-layer hardening
 
 - [x] `[P1]` Make non-nullable model fields tolerant (`XtreamStream.streamId`/`name`) so one bad
