@@ -1,6 +1,6 @@
 # AIO TV — TODO / Tracking
 
-_Last updated: 2026-06-21_
+_Last updated: 2026-06-22_
 
 Living checklist of outstanding work. Each item is tagged with the roadmap phase that
 resolves it (`[P0]`–`[P5]`), so executing a phase ticks off its items automatically.

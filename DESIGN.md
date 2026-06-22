@@ -1,6 +1,6 @@
 # AIO TV — Design & Roadmap
 
-_Living design document. Draft — open to revision. Last updated: 2026-06-21._
+_Living design document. Draft — open to revision. Last updated: 2026-06-22._
 
 Companion to [`TODO.md`](TODO.md) (task tracking). This doc is the **north-star reference**:
 what we're building, why, the target architecture, and the phased path to get there. It is
@@ -164,6 +164,11 @@ player listener.
 
 Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and exit criteria.
 
+_Status note (2026-06-22): work has run **out of order** — **Phase 3 (Live TV) shipped early**
+(v2 + Sky refinement), pulling **parts of Phase 1** (Room cache, reactive cache-first repos)
+forward, while **Phase 2 (VOD §6a) is still unstarted**. The per-phase status tags below and §12
+reflect the real state — don't read this list strictly top-to-bottom._
+
 ### Phase 0 — Stabilise & verify _(essentially complete)_
 - **Goal:** prove the merged P0/P1/P2 work end-to-end.
 - **Done:** project builds; runs/browses on phone emulator; **VOD playback** via Torrentio+TorBox
@@ -174,7 +179,10 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
   (no emulator — needs the physical stick).
 - **Exit:** ✅ a VOD title plays via TorBox **and** live IPTV plays, on the phone emulator.
 
-### Phase 1 — Foundations
+### Phase 1 — Foundations _(partly done)_
+- **Status (2026-06-22):** **Room cache + reactive cache-first repositories landed** (with Live TV
+  v2). Still TODO: `ContentSource`/`StreamResolver` abstractions, onboarding wizard, dedicated
+  Sources screen, live auto-refresh / pull-to-refresh, cache-invalidation-on-settings-change.
 - **Goal:** the architecture and onboarding that everything else builds on.
 - **Deliverables:** `ContentSource` + `StreamResolver` abstractions; reactive repositories
   with **auto-refresh** + cache (Room/Paging); **onboarding wizard**; consolidate IA (drop
@@ -183,8 +191,10 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
   cache-invalidation-on-settings-change.
 - **Exit:** adding/removing a source updates the UI live; first-run wizard configures the app.
 
-### Phase 2 — Core experience (VOD)
-- **Goal:** make browsing → detail → play feel premium (Netflix-style; see §6a).
+### Phase 2 — Core experience (VOD) _(not started — the next major gap)_
+- **Goal:** make browsing → detail → play feel premium (Netflix-style; see §6a). _(This is the
+  real "what's next" — Live TV jumped ahead of it. Overlaps the queued Home → VOD network
+  categories work.)_
 - **Deliverables:** **auto-select best-working stream + failover** (no manual list); **Cinemeta
   as built-in meta provider**; movie Detail (Play/Resume); **series Detail with season selector
   + episode list** (`meta.videos[]`); **quality preference** (default 1080p, 1080p/4K setting +
@@ -195,7 +205,10 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
 - **Exit:** search/click a movie or series → one tap → it plays the best cached source; binge a
   series end-to-end with resume and next-episode autoplay.
 
-### Phase 3 — Live TV
+### Phase 3 — Live TV _(largely done — shipped early)_
+- **Status (2026-06-22):** core experience + cache-first + region filter + favourites/recents +
+  Sky-style "For You" landing **shipped** (v2 + refinement). Remaining: TV-emulator validation
+  pass, catch-up/archive, optional full multi-hour EPG grid.
 - **Goal:** first-class IPTV.
 - **Deliverables:** real EPG grid (now/next, D-pad + touch), fast zapping, channel groups &
   favourites, catch-up; robust Xtream/M3U handling.
@@ -203,13 +216,13 @@ Each phase lists its goal, key deliverables, the `TODO.md` items it absorbs, and
   tolerance.
 - **Exit:** browse the guide, zap channels, and watch live reliably.
 
-### Phase 4 — Discovery & personalisation
+### Phase 4 — Discovery & personalisation _(partly started — favourites/recents + channel search landed in Live TV)_
 - **Goal:** find and keep content.
 - **Deliverables:** unified search + voice; Watchlist; **optional Trakt.tv sync** (Watchlist +
   Continue Watching); add Real-Debrid/AllDebrid resolvers behind the existing interface.
 - **Exit:** search across sources; save and resume from a watchlist.
 
-### Phase 5 — Hardening & modernisation
+### Phase 5 — Hardening & modernisation _(not started; Media3 1.5.1 + R8 keep-rules done)_
 - **Goal:** production-grade quality.
 - **Deliverables:** toolchain upgrades (AGP/Kotlin/Compose BOM/Hilt/Coil); performance &
   memory tuning for Fire TV sticks; accessibility pass; security (redact API keys from
