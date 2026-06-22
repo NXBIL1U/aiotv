@@ -9,6 +9,7 @@ import com.itrepos.aiotv.data.remote.stremio.catalogUrl
 import com.itrepos.aiotv.data.remote.stremio.metaUrl
 import com.itrepos.aiotv.data.remote.stremio.streamUrl
 import com.itrepos.aiotv.domain.StreamParsing
+import com.itrepos.aiotv.domain.StreamRequestTuning
 import com.itrepos.aiotv.domain.model.BehaviorHints
 import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.domain.model.Stream
@@ -65,7 +66,7 @@ class StremioRepository @Inject constructor(
         val streams = mutableListOf<Stream>()
         getManifests().forEach { (baseUrl, _) ->
             try {
-                val resp = stremioApi.getStreams(streamUrl(baseUrl, type, id))
+                val resp = stremioApi.getStreams(streamUrl(StreamRequestTuning.tuneStreamBase(baseUrl), type, id))
                 streams += resp.streams.map { it.toStream() }
             } catch (_: Exception) {}
         }
