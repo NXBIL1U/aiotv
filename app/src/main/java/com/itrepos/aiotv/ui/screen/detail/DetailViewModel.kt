@@ -11,6 +11,7 @@ import com.itrepos.aiotv.domain.StreamRanker
 import com.itrepos.aiotv.domain.model.Episode
 import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.domain.model.Stream
+import com.itrepos.aiotv.domain.playback.DeviceCapabilities
 import com.itrepos.aiotv.domain.playback.PlaybackController
 import com.itrepos.aiotv.domain.usecase.GetStreamsUseCase
 import com.itrepos.aiotv.domain.usecase.ResolveStreamUseCase
@@ -51,10 +52,24 @@ class DetailViewModel @Inject constructor(
     private val resolveStream: ResolveStreamUseCase,
     private val appDataStore: AppDataStore,
     private val playbackController: PlaybackController,
+    private val deviceCapabilities: DeviceCapabilities,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = _state.asStateFlow()
+
+    /**
+     * Device-aware ranking. Returns the FULL ranked list (for the manual Sources view) and the
+     * auto-eligible subset (decodable + within screen/decode res + <= 20 GB) for auto-pick.
+     */
+    private suspend fun rankFor(raw: List<Stream>): Pair<List<Stream>, List<Stream>> {
+        val pref = appDataStore.preferredQuality.first()
+        val profile = deviceCapabilities.profile
+        val target = if (pref.rank <= profile.maxResolution.rank) pref else profile.maxResolution
+        val ranked = StreamRanker.rank(raw, profile, target)
+        val auto = ranked.filter { StreamRanker.isAutoEligible(it, profile) }
+        return ranked to auto
+    }
 
     fun load(type: String, id: String) {
         viewModelScope.launch {
@@ -94,11 +109,8 @@ class DetailViewModel @Inject constructor(
             val streams = getStreams(type, id)
             val hashes = streams.mapNotNull { it.infoHash }
             val cached = if (hashes.isNotEmpty()) torBoxRepo.checkCached(hashes) else emptyMap()
-            val pref = appDataStore.preferredQuality.first()
-            val ranked = StreamRanker.rank(
-                streams.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) },
-                pref,
-            )
+            val withCached = streams.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) }
+            val (ranked, _) = rankFor(withCached)
             _state.value = DetailState(
                 isLoading = false,
                 kind = DetailKind.MOVIE,
@@ -135,17 +147,14 @@ class DetailViewModel @Inject constructor(
             } else {
                 emptyMap()
             }
-            val pref = appDataStore.preferredQuality.first()
-            val ranked = StreamRanker.rank(
-                raw.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) },
-                pref,
-            )
+            val withCached = raw.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) }
+            val (ranked, auto) = rankFor(withCached)
             _state.value = _state.value.copy(episodeStreams = ranked)
 
-            // Start a controller session: it resolves the best candidate and holds the ranked list
-            // so the Player can silently fail over / advance to the next episode.
+            // Start a controller session from the auto-eligible subset: it resolves the best
+            // candidate and holds the list so the Player can silently fail over / advance.
             val series = _state.value.series
-            val started = series != null && playbackController.startSeries(series, episode, ranked)
+            val started = series != null && auto.isNotEmpty() && playbackController.startSeries(series, episode, auto)
             if (started) {
                 _state.value = _state.value.copy(resolvingEpisode = null)
                 val session = playbackController.state.value!!
@@ -156,6 +165,30 @@ class DetailViewModel @Inject constructor(
                 // state from a prior play on the same singleton).
                 playbackController.clear()
                 _state.value = _state.value.copy(resolvingEpisode = null, sourcesForEpisode = episode)
+            }
+        }
+    }
+
+    /**
+     * Movie Play button: auto-pick the best device-eligible source and play it (mirrors the series
+     * [playEpisode] auto path). If nothing is eligible/resolves, the full sources list stays on
+     * screen for a manual pick. Movie progressId = the stable movie id (resume keys to the movie).
+     */
+    fun playMovieAuto(onPlay: (url: String, title: String, progressId: String) -> Unit) {
+        if (_state.value.resolving) return
+        val movieId = _state.value.meta?.id ?: return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(resolving = true, error = null)
+            val (_, auto) = rankFor(_state.value.streams)
+            playbackController.clear()
+            val title = _state.value.meta?.name ?: movieId
+            val started = auto.isNotEmpty() && playbackController.startMovieAuto(auto, title, movieId)
+            _state.value = _state.value.copy(resolving = false)
+            if (started) {
+                onPlay(playbackController.state.value!!.currentUrl, title, movieId)
+            } else {
+                // No eligible source resolved — the full sources list stays visible for a manual pick.
+                _state.value = _state.value.copy(error = "No streamable source — pick one below")
             }
         }
     }

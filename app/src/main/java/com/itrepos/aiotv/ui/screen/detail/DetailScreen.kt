@@ -33,6 +33,7 @@ fun DetailScreen(
         DetailKind.MOVIE -> MovieDetail(
             state = state,
             fallbackTitle = id,
+            onPlayAuto = { viewModel.playMovieAuto(onPlayStream) },
             onPlayStream = { stream ->
                 viewModel.resolveStream(stream) { url ->
                     onPlayStream(url, stream.title ?: state.meta?.name ?: id, url)

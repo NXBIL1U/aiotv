@@ -43,9 +43,13 @@ class AppDataStore @Inject constructor(
         it[KEY_LIVE_REGIONS] ?: DEFAULT_LIVE_REGIONS
     }
 
-    /** The user's preferred playback quality for source ranking (default: HD_1080). */
+    /**
+     * The user's preferred quality CEILING for source ranking (default: unrestricted / UHD_2160).
+     * The effective target is min(this, device maxResolution), so an unset preference lets each
+     * device target the best it can decode/display; a user who picks 1080p caps there.
+     */
     val preferredQuality: Flow<Quality> = dataStore.data.map {
-        if (it[KEY_PREFERRED_QUALITY] == "2160p") Quality.UHD_2160 else Quality.HD_1080
+        if (it[KEY_PREFERRED_QUALITY] == "1080p") Quality.HD_1080 else Quality.UHD_2160
     }
 
     suspend fun setTorBoxApiKey(key: String) = dataStore.edit { it[KEY_TORBOX_API_KEY] = key }

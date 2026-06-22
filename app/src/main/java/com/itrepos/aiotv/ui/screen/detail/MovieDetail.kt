@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -18,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,14 +45,16 @@ import com.itrepos.aiotv.ui.theme.CachedBadge
 fun MovieDetail(
     state: DetailState,
     fallbackTitle: String,
+    onPlayAuto: () -> Unit,
     onPlayStream: (Stream) -> Unit,
     onBack: () -> Unit,
 ) {
-    // Focus the first stream row once streams are available.
     val firstStreamFocusRequester = remember { FocusRequester() }
+    // The primary Play button gets initial D-pad focus once streams are available.
+    val playFocus = remember { FocusRequester() }
     LaunchedEffect(state.streams.isNotEmpty()) {
         if (state.streams.isNotEmpty()) {
-            runCatching { firstStreamFocusRequester.requestFocus() }
+            runCatching { playFocus.requestFocus() }
         }
     }
 
@@ -67,6 +71,12 @@ fun MovieDetail(
                         .verticalScroll(rememberScrollState()),
                 ) {
                     DetailHeader(title = state.meta?.name ?: fallbackTitle, onBack = onBack)
+                    MoviePlayButton(
+                        state = state,
+                        focusRequester = playFocus,
+                        onPlayAuto = onPlayAuto,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
                     state.meta?.description?.let {
                         Text(
                             it,
@@ -89,6 +99,14 @@ fun MovieDetail(
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 item(key = "header") { DetailHeader(title = state.meta?.name ?: fallbackTitle, onBack = onBack) }
+                item(key = "play") {
+                    MoviePlayButton(
+                        state = state,
+                        focusRequester = playFocus,
+                        onPlayAuto = onPlayAuto,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 state.meta?.description?.let { desc ->
                     item(key = "description") {
                         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -127,6 +145,24 @@ fun MovieDetail(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MoviePlayButton(
+    state: DetailState,
+    focusRequester: FocusRequester,
+    onPlayAuto: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onPlayAuto,
+        enabled = !state.resolving && state.streams.isNotEmpty(),
+        modifier = modifier.focusRequester(focusRequester),
+    ) {
+        Icon(Icons.Default.PlayArrow, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text("Play")
     }
 }
 

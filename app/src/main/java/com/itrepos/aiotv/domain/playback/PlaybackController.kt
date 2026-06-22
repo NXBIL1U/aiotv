@@ -4,6 +4,7 @@ import com.itrepos.aiotv.data.local.AppDataStore
 import com.itrepos.aiotv.data.repository.SeriesMeta
 import com.itrepos.aiotv.domain.StreamRanker
 import com.itrepos.aiotv.domain.model.Episode
+import com.itrepos.aiotv.domain.model.Quality
 import com.itrepos.aiotv.domain.model.Stream
 import com.itrepos.aiotv.domain.usecase.GetStreamsUseCase
 import com.itrepos.aiotv.domain.usecase.ResolveStreamUseCase
@@ -42,6 +43,7 @@ class PlaybackController @Inject constructor(
     private val getStreams: GetStreamsUseCase,
     private val resolveStream: ResolveStreamUseCase,
     private val appDataStore: AppDataStore,
+    private val deviceCapabilities: DeviceCapabilities,
 ) {
     private val _state = MutableStateFlow<PlaybackState?>(null)
     val state: StateFlow<PlaybackState?> = _state.asStateFlow()
@@ -66,6 +68,18 @@ class PlaybackController @Inject constructor(
             progressId = episode.id,
             upNext = BingeSequencing.nextEpisode(series.episodes, episode.id),
         )
+        return true
+    }
+
+    /** Resolve the best of [candidates] (already device-filtered by the caller) and start a movie session. */
+    suspend fun startMovieAuto(candidates: List<Stream>, title: String, progressId: String): Boolean {
+        val picked = resolveFrom(candidates, 0) ?: return false
+        this.series = null
+        this.episode = null
+        this.candidates = candidates
+        this.sourceIndex = picked.second
+        this.bingeGroup = candidates.getOrNull(picked.second)?.bingeGroup
+        _state.value = PlaybackState(picked.first, title, progressId, upNext = null)
         return true
     }
 
@@ -114,8 +128,11 @@ class PlaybackController @Inject constructor(
             return false
         }
         val pref = appDataStore.preferredQuality.first()
-        // rank, then float same-bingeGroup candidates to the front (stable sort preserves rank within groups)
-        val ranked = StreamRanker.rank(raw, pref)
+        val profile = deviceCapabilities.profile
+        val target = minQuality(pref, profile.maxResolution)
+        // device-aware rank, drop ineligible (over-cap/undecodable), then float same-bingeGroup to front
+        val ranked = StreamRanker.rank(raw, profile, target)
+            .filter { StreamRanker.isAutoEligible(it, profile) }
             .sortedByDescending { BingeSequencing.isBingeMatch(it.bingeGroup, bingeGroup) }
         val picked = resolveFrom(ranked, 0) ?: return false
         this.episode = next
@@ -155,6 +172,8 @@ class PlaybackController @Inject constructor(
         }
         return null
     }
+
+    private fun minQuality(a: Quality, b: Quality): Quality = if (a.rank <= b.rank) a else b
 
     private fun titleOf(s: SeriesMeta, e: Episode) = "${s.item.name} S${e.season}·E${e.number}"
 }
