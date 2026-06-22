@@ -22,6 +22,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +30,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -69,6 +71,13 @@ fun PlayerScreen(
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var isBuffering by remember { mutableStateOf(true) }
 
+    // Up-next countdown state
+    var ended by remember { mutableStateOf(false) }
+    var showUpNext by remember { mutableStateOf(false) }
+    var secondsLeft by remember { mutableIntStateOf(5) }
+    // FocusRequester for TV: Play-now button gets initial D-pad focus
+    val playNowFocus = remember { FocusRequester() }
+
     // The now-playing session (null for live channels / direct plays). When it matches this route's
     // progressId, the controller's currentUrl wins (it may have failed over); otherwise the route
     // url is the baseline (live IPTV, process-death fallback) and there is no failover/next.
@@ -82,6 +91,46 @@ fun PlayerScreen(
     // Resume rule: a failover keeps the position (same progressId), a new episode starts fresh.
     val lastPositionMs = remember { mutableStateOf(0L) }
     val lastProgressId = remember { mutableStateOf<String?>(null) }
+
+    // Helper: advance to the next episode (or surface an error on failure)
+    fun triggerAdvance() {
+        scope.launch {
+            showUpNext = false
+            val ok = viewModel.advanceToNextEpisode()
+            if (!ok) {
+                errorMsg = "Couldn't load next episode"
+            }
+            // On success, playbackState emits a new progressId → the media LaunchedEffect picks
+            // it up and loads the next episode; ended resets to false on STATE_READY.
+        }
+    }
+
+    // Show overlay when episode ends AND there is a next episode; hide when no upNext.
+    LaunchedEffect(ended, session?.upNext) {
+        if (ended && session?.upNext != null) {
+            showUpNext = true
+        } else {
+            showUpNext = false
+        }
+    }
+
+    // Countdown: 5 → 0 then auto-advance
+    LaunchedEffect(showUpNext) {
+        if (!showUpNext) return@LaunchedEffect
+        secondsLeft = 5
+        while (secondsLeft > 0) {
+            delay(1_000)
+            secondsLeft--
+        }
+        triggerAdvance()
+    }
+
+    // Grant initial focus to Play-now on TV when the overlay appears
+    LaunchedEffect(showUpNext, isTv) {
+        if (showUpNext && isTv) {
+            runCatching { playNowFocus.requestFocus() }
+        }
+    }
 
     val exoPlayer = remember {
         // Many IPTV / Xtream / VOD servers reject the default ExoPlayer User-Agent
@@ -135,8 +184,23 @@ fun PlayerScreen(
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                isBuffering = playbackState == Player.STATE_BUFFERING
-                if (playbackState == Player.STATE_READY) errorMsg = null
+                when (playbackState) {
+                    Player.STATE_BUFFERING -> {
+                        isBuffering = true
+                    }
+                    Player.STATE_READY -> {
+                        isBuffering = false
+                        errorMsg = null
+                        // Reset ended when new media is ready (e.g. after advance to next episode)
+                        ended = false
+                        showUpNext = false
+                    }
+                    Player.STATE_ENDED -> {
+                        isBuffering = false
+                        ended = true
+                    }
+                    else -> Unit
+                }
             }
         }
         exoPlayer.addListener(listener)
@@ -270,6 +334,27 @@ fun PlayerScreen(
                     Text("Retry")
                 }
             }
+        }
+
+        // Up-next countdown overlay — shown bottom-end when an episode ends and upNext exists.
+        val upNextEpisode = session?.upNext
+        if (showUpNext && upNextEpisode != null) {
+            UpNextOverlay(
+                episode = upNextEpisode,
+                secondsLeft = secondsLeft,
+                onPlayNow = {
+                    // Cancel the countdown coroutine implicitly by setting showUpNext = false
+                    // (the LaunchedEffect key changes and the old coroutine is cancelled).
+                    showUpNext = false
+                    triggerAdvance()
+                },
+                onCancel = {
+                    showUpNext = false
+                    ended = false
+                },
+                playNowFocusRequester = if (isTv) playNowFocus else null,
+                modifier = Modifier.align(Alignment.BottomEnd),
+            )
         }
     }
 }
