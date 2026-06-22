@@ -53,6 +53,7 @@ import kotlinx.coroutines.delay
 fun PlayerScreen(
     url: String,
     title: String,
+    progressId: String = url,
     isTv: Boolean,
     onBack: () -> Unit,
     viewModel: PlayerViewModel = hiltViewModel(),
@@ -113,7 +114,7 @@ fun PlayerScreen(
             url.contains(".ts", ignoreCase = true) -> MimeTypes.VIDEO_MP2T
             else -> null
         }
-        val startPositionMs = viewModel.getStartPosition(url)
+        val startPositionMs = viewModel.getStartPosition(progressId)
         val mediaItem = MediaItem.Builder()
             .setUri(url)
             .apply { mime?.let { setMimeType(it) } }
@@ -129,7 +130,7 @@ fun PlayerScreen(
             delay(5_000)
             val pos = exoPlayer.currentPosition
             val dur = exoPlayer.duration.takeIf { it > 0 } ?: 0L
-            if (pos > 0) viewModel.saveProgress(url, pos, dur)
+            if (pos > 0) viewModel.saveProgress(progressId, pos, dur)
         }
     }
 
@@ -151,7 +152,7 @@ fun PlayerScreen(
         onDispose {
             val pos = exoPlayer.currentPosition
             val dur = exoPlayer.duration.takeIf { it > 0 } ?: 0L
-            if (pos > 0) viewModel.saveProgress(url, pos, dur)
+            if (pos > 0) viewModel.saveProgress(progressId, pos, dur)
             exoPlayer.release()
         }
     }

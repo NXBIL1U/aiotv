@@ -89,9 +89,11 @@ fun AppNavigation(isTv: Boolean, windowSizeClass: WindowSizeClass) {
         composable(Screen.Player.route) { back ->
             val url = URLDecoder.decode(back.arguments?.getString("url") ?: "", "UTF-8")
             val title = URLDecoder.decode(back.arguments?.getString("title") ?: "", "UTF-8")
+            val progressId = URLDecoder.decode(back.arguments?.getString("progressId") ?: url, "UTF-8")
             PlayerScreen(
                 url = url,
                 title = title,
+                progressId = progressId,
                 isTv = isTv,
                 onBack = { navController.popBackStack() },
             )
