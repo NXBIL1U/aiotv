@@ -27,3 +27,23 @@ fun streamUrl(baseUrl: String, type: String, id: String) =
     "${baseUrl.trimEnd('/')}/stream/$type/$id.json"
 
 val CINEMETA_HOSTS = listOf("https://cinemeta-live.strem.io", "https://v3-cinemeta.strem.fun")
+
+fun searchUrl(baseUrl: String, type: String, query: String): String {
+    val q = java.net.URLEncoder.encode(query, "UTF-8").replace("+", "%20")
+    return "${baseUrl.trimEnd('/')}/catalog/$type/top/search=$q.json"
+}
+
+/** Tries each host's search URL; returns null iff NONE could be reached, else the first responder's metas. */
+suspend fun fetchSearchFromHosts(
+    hosts: List<String>,
+    type: String,
+    query: String,
+    fetch: suspend (url: String) -> List<StremioMeta>,
+): List<StremioMeta>? {
+    for (host in hosts) {
+        try {
+            return fetch(searchUrl(host, type, query))
+        } catch (_: Exception) {}
+    }
+    return null
+}
