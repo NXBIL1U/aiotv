@@ -29,12 +29,15 @@ for the client we're watching from").
 - A reusable `DeviceCapabilities` probe (codecs, max resolution, HDR, device tier).
 - Richer release parsing (codec / HDR / source type) feeding the ranker.
 
+**Goal addition — candidate-list composition (folded in, owner-requested):** the owner's Torrentio addon is
+configured `limit=5 | sort=qualitysize`, so it returns only the **5 biggest files** — for "Her" all 5 were
+24–34 GB REMUX, leaving the ranker no streamable option. **Empirically verified (2026-06-22, VPN off):** the
+same request with `limit=30` returns **18 streams**, all `[TB+]` cached, including a **5.85 GB 1080p HEVC**
+(12 seeders), an **8.74 GB** and **12.54 GB 1080p AVC** — exactly the streamable encodes we want. So we **raise
+the Torrentio request `limit`** at request time (see §4 `StreamRequestTuning`); the device-aware ranker then has
+real choices. Raising `limit` is **necessary and sufficient** — no `sort` change (and no token-guessing) needed.
+
 **Non-goals (v1):**
-- **Candidate-list composition.** We rank whatever the Torrentio addon returns. The owner's addon is configured
-  `sort=qualitysize | limit=5`, so it returns only the **5 biggest files** — for some titles (e.g. "Her") the
-  list may contain *no* streamable encode, and no ranker can conjure one. **Surfacing more/smaller candidates
-  (bump `limit`, or `sort=quality`) is a related follow-up**, tracked separately (it edits the stored addon
-  config, a different concern). See §10.
 - **Real network-bandwidth measurement.** We infer network tolerance from **device tier** (TV ⇒ assume strong/
   wired; handheld ⇒ assume variable). No active throughput probing in v1.
 - **Per-stream track UI / quality switching mid-play** — that's the (separate) track-selection work.
@@ -59,6 +62,8 @@ is build-not-adopt.
 
 | Unit | Responsibility |
 |---|---|
+| `StreamRequestTuning` (new, pure, `domain`) | `tuneStreamBase(baseUrl): String` — if the host is **Torrentio** (`contains "torrentio"`), rewrite the options path segment to raise `limit` (replace `limit=<n>` → `limit=30`; inject if absent), **preserving everything else** (the `torbox=` token, `qualityfilter`, `debridoptions`, `sort`). Non-Torrentio addons returned unchanged. Pure string transform ⇒ unit-testable. |
+| `StremioRepository.getStreams` (modify) | Build the stream request from the **tuned** base: `streamUrl(tuneStreamBase(baseUrl), type, id)`. Manifest/catalog/meta requests unchanged (`limit` only affects stream lists). `toStream()` also fills the new `codec`/`hdr`/`source` fields (it already aggregates `name+title+filename` into `detectText`). |
 | `StreamParsing.kt` (modify) | Add `codec(text): Codec`, `hdr(text): Hdr`, `sourceType(text): SourceType`. Regexes ported from parse-torrent-title (MIT). Existing `quality`/`seeders`/`sizeBytes`/`languageScore`/`isTbCached` unchanged. |
 | `Stream.kt` (modify) | Add `codec: Codec = UNKNOWN`, `hdr: Hdr = UNKNOWN`, `source: SourceType = UNKNOWN`. Add enums `Codec { AVC, HEVC, AV1, UNKNOWN }`, `Hdr { SDR, HDR10, DOLBY_VISION, UNKNOWN }`, `SourceType { REMUX, BLURAY, WEBDL, WEBRIP, HDTV, UNKNOWN }`. |
 | `DeviceCapabilities` (new, `@Singleton`, `domain/playback`) | Probes the device **once** and exposes a `DeviceProfile`. Codecs + max decode resolution via `MediaCodecList(REGULAR_CODECS)` / Media3 `MediaCodecUtil.getDecoderInfos(mime,…)`; screen resolution via `Display.getMode()`; HDR via `Display.getHdrCapabilities()`; tier via the existing `isTv` signal (`UiModeManager.UI_MODE_TYPE_TELEVISION`). |
@@ -87,12 +92,15 @@ streams
 - **`decodable`** — `codec == UNKNOWN` (can't tell ⇒ keep) **or** `codec ∈ profile.decodableCodecs`. Drops a
   HEVC/AV1 source on a device with no such decoder (prevents the `NO_EXCEEDS_CAPABILITIES` hard-fail).
 - **`qualityFit`** — quality at/under the ceiling scores by `quality.rank`; over-ceiling is already filtered.
-- **`streamability` (tier-dependent — the §3-of-design crux):**
-  - **HANDHELD:** strong **bloat demotion** — a REMUX (and any source whose `sizeBytes` is far above a sane band
-    for its resolution) is demoted so a clean WEB-DL/encode of the **same or even one-lower** resolution outranks
-    it. This is what stops a phone auto-picking a 24 GB 1080p REMUX.
-  - **TV:** REMUX is acceptable (assumed strong network) — only a mild size tiebreak applies, so the high-quality
-    pick is preserved. (Size bands + penalty magnitudes are fixed in the plan, with unit tests.)
+- **`streamability` (tier-dependent — the §3-of-design crux). Since candidates are often *all* cached
+  (verified on "Her": 18/18 `[TB+]`), this — not cached-first — is what actually picks the smooth source:**
+  - Prefer a **sane bitrate band** for the resolution — penalise **both** REMUX/oversize bloat **and**
+    ultra-low-bitrate potatoes (e.g. a 1.8 GB "1080p"), so we land on a healthy encode (the ~6–13 GB 1080p
+    range here), not merely the smallest file. (Bands + penalty magnitudes fixed in the plan, unit-tested.)
+  - **HANDHELD:** strong bloat demotion — a 1080p REMUX is demoted so a clean WEB-DL/encode of the same (or even
+    one-lower) resolution outranks it. This is what stops a phone auto-picking the 24 GB REMUX.
+  - **TV:** REMUX/4K acceptable (assumed strong network) — only a mild size tiebreak applies, so the
+    highest-quality decodable pick is preserved.
 - **`hdr`** — an HDR source on a non-HDR screen is **kept but penalised** (plays, looks washed out) so an SDR
   equivalent wins when present; never hard-dropped.
 - **`seederScore`** — seeders descending; **1-seeder = penalty** (AutoStream). Cached `[TB+]` already dominates
@@ -105,7 +113,8 @@ neither auto-picks an undecodable codec; REMUX reachable only via the manual Sou
 
 ```
 DetailViewModel.loadMovie(id)
-  → GetStreamsUseCase → raw candidates (each parsed: quality/codec/hdr/source/size/seeders/lang/cached)
+  → GetStreamsUseCase → StremioRepository.getStreams → streamUrl(tuneStreamBase(baseUrl), …)   // limit raised
+  → raw candidates (each parsed: quality/codec/hdr/source/size/seeders/lang/cached)
   → target = preferredQuality (device-aware default) ; profile = DeviceCapabilities.profile
   → StreamRanker.rank(raw, profile, target)            // device-tier adaptive
   → PlaybackController.startMovieAuto(ranked, title, progressId=id)
@@ -130,6 +139,9 @@ Live IPTV: unchanged (no candidate list).
 ## 8. Testing
 
 **Pure logic — TDD (JUnit4 + `runBlocking`; hand-fake `DeviceProfile`, no mockk):**
+- `StreamRequestTuning.tuneStreamBase`: a real Torrentio base with `…limit=5…torbox=<tok>…` → `limit=30` with the
+  **token and all other options preserved**; a Torrentio base with no `limit` → `limit` injected; a
+  **non-Torrentio** URL → returned **unchanged**.
 - `StreamParsing`: `codec`/`hdr`/`sourceType` from **real titles** — e.g. `"Her 2013 1080p BluRay REMUX AVC
   DTS-HD MA"` → AVC/SDR/REMUX; `"… 2160p HDR10 HEVC x265"` → HEVC/HDR10; `"… WEB-DL x264"` → AVC/WEBDL; unknown
   strings → `UNKNOWN`.
@@ -154,12 +166,16 @@ known limitation).
 
 ## 9. Build order (incremental — smoke-test each, per owner's "validate as we go")
 
-1. **Parsing + model** (`Codec`/`Hdr`/`SourceType` enums, `StreamParsing` rules, `Stream` fields) — TDD pure;
-   smoke = log parsed fields.
-2. **`DeviceCapabilities` probe** + `DeviceProfile` — smoke on emulator (log the profile).
+1. **Candidate tuning + parsing + model** (`StreamRequestTuning.tuneStreamBase` wired into
+   `StremioRepository.getStreams`; `Codec`/`Hdr`/`SourceType` enums; `StreamParsing` rules; `Stream` fields) —
+   TDD pure; smoke on emulator = the "Her" stream list now shows **~18 candidates incl. ~6–13 GB encodes**, with
+   parsed codec/source logged (not just the 5 REMUX).
+2. **`DeviceCapabilities` probe** + `DeviceProfile` — smoke on emulator (log the profile; expect HANDHELD, ~1080p
+   max, AVC present, HEVC-4K likely absent).
 3. **`StreamRanker` rewrite** (device-tier adaptive) — TDD pure (phone vs TV fixtures); smoke = log ranked order.
 4. **Movie auto-pick wiring** (`startMovieAuto` + `DetailViewModel.loadMovie`; series pass the profile too;
-   device-aware `preferredQuality` default) — smoke = tap "Her" auto-plays; Sources sheet intact; series still OK.
+   device-aware `preferredQuality` default) — smoke = tap "Her" auto-plays a **streamable** ~6–13 GB 1080p source
+   (not the 24 GB REMUX); Sources sheet intact; series still OK.
 
 Commit locally after each step. Owner merges.
 
@@ -172,7 +188,8 @@ Commit locally after each step. Owner merges.
 - **Adopt MIT logic**: parse-torrent-title regexes → `StreamParsing`; AutoStream heuristic → `StreamRanker`.
 - The existing **Preferred-quality** setting is the *target*, with a **device-aware default** (4K-capable TV ⇒
   4K, else 1080p); device capability is always the hard cap.
-- **Candidate-list composition is a non-goal/known limitation** (Torrentio `limit=5 | sort=qualitysize` returns
-  only the biggest files). **Follow-up:** surface streamable encodes by bumping `limit` / switching `sort` in the
-  stored addon config — tracked separately; without it, all-REMUX titles still lack a smooth option.
+- **Candidate-list composition is folded in** (owner-requested): raise the Torrentio request `limit` (→ 30) via a
+  pure `StreamRequestTuning` transform so streamable encodes enter the pool. **Empirically verified** the lever
+  works (5 REMUX-only @ limit=5 → 18 mixed-size cached @ limit=30). Only `limit` is touched; the `torbox=` token
+  and all other options are preserved; non-Torrentio addons untouched.
 - Built on **`feat/binge-watch`**; commit locally; owner merges.
