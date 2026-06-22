@@ -89,7 +89,7 @@ class DetailViewModel @Inject constructor(
 
     private suspend fun loadMovie(type: String, id: String) {
         try {
-            val meta = stremioRepo.getMeta(type, id)
+            val meta = metaRepo.getMovieMeta(type, id)
             val streams = getStreams(type, id)
             val hashes = streams.mapNotNull { it.infoHash }
             val cached = if (hashes.isNotEmpty()) torBoxRepo.checkCached(hashes) else emptyMap()
@@ -99,19 +99,7 @@ class DetailViewModel @Inject constructor(
             _state.value = DetailState(
                 isLoading = false,
                 kind = DetailKind.MOVIE,
-                meta = meta?.let { m ->
-                    MediaItem(
-                        id = m.id,
-                        type = m.type,
-                        name = m.name,
-                        description = m.description,
-                        posterUrl = m.poster,
-                        backdropUrl = m.background,
-                        year = m.year?.take(4)?.toIntOrNull(),
-                        genres = m.genres,
-                        imdbRating = m.imdbRating,
-                    )
-                },
+                meta = meta,
                 streams = ranked,
             )
         } catch (e: Exception) {
