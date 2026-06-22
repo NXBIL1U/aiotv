@@ -152,6 +152,9 @@ class DetailViewModel @Inject constructor(
                 onPlay(session.currentUrl, episodeTitle(episode), episode.id)
             } else {
                 // Nothing resolved automatically — fall back to a manual pick.
+                // Clear any stale session so the Sources sheet starts clean (no lingering controller
+                // state from a prior play on the same singleton).
+                playbackController.clear()
                 _state.value = _state.value.copy(resolvingEpisode = null, sourcesForEpisode = episode)
             }
         }
@@ -175,6 +178,9 @@ class DetailViewModel @Inject constructor(
         if (_state.value.resolvingEpisode != null) return
         viewModelScope.launch {
             _state.value = _state.value.copy(resolvingEpisode = episode, sourcesForEpisode = null, error = null)
+            // Clear any stale session so the Player's session-latch binds to the URL the user
+            // actually chose, not to whatever the singleton held from a previous play.
+            playbackController.clear()
             val url = resolveStream(stream).getOrNull()
             _state.value = _state.value.copy(resolvingEpisode = null)
             if (url != null) {

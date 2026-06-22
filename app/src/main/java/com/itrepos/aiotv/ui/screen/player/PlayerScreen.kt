@@ -70,6 +70,8 @@ fun PlayerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    // Separate flag for "next episode failed" so we can show Back (not Retry) in that card.
+    var nextEpFailed by remember { mutableStateOf(false) }
     var isBuffering by remember { mutableStateOf(true) }
 
     // Up-next countdown state
@@ -99,6 +101,11 @@ fun PlayerScreen(
     // The error listener is registered once (keyed on exoPlayer); read the latest session via this.
     val hasSession by rememberUpdatedState(session != null)
 
+    // Guard against concurrent failover coroutines: a burst of Player errors must not
+    // double-advance the source index or clobber lastPositionMs.
+    var failoverInFlight by remember { mutableStateOf(false) }
+    val failoverInFlightRef by rememberUpdatedState({ failoverInFlight })
+
     // Resume rule: a failover keeps the position (same progressId), a new episode starts fresh.
     val lastPositionMs = remember { mutableStateOf(0L) }
     val lastProgressId = remember { mutableStateOf<String?>(null) }
@@ -109,7 +116,9 @@ fun PlayerScreen(
             showUpNext = false
             val ok = viewModel.advanceToNextEpisode()
             if (!ok) {
-                errorMsg = "Couldn't load next episode"
+                // Spec §4: next-ep failure shows a Back card, not a Retry card — Back returns
+                // the user to Detail rather than re-preparing an already-ended item.
+                nextEpFailed = true
             }
             // On success, playbackState emits a new progressId → the media LaunchedEffect picks
             // it up and loads the next episode; ended resets to false on STATE_READY.
@@ -175,20 +184,30 @@ fun PlayerScreen(
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                // Remember where we were so a failover resumes at the same spot.
-                lastPositionMs.value = exoPlayer.currentPosition
                 if (hasSession) {
+                    // Guard: ignore re-entrant errors while a failover is already in flight
+                    // (a burst of Player errors must not double-advance the source index or
+                    // clobber lastPositionMs with a stale position).
+                    if (failoverInFlightRef()) return
+                    // Capture position before the source is swapped.
+                    lastPositionMs.value = exoPlayer.currentPosition
+                    failoverInFlight = true
                     // Silent mid-play failover: try the next candidate source for the same item.
                     isBuffering = true
                     scope.launch {
-                        val advanced = viewModel.failover()
-                        if (!advanced) {
-                            // Sources exhausted — surface the error + Retry (Back returns to Detail).
-                            errorMsg = error.localizedMessage ?: error.errorCodeName
-                            isBuffering = false
+                        try {
+                            val advanced = viewModel.failover()
+                            if (!advanced) {
+                                // Sources exhausted — surface the error + Retry (Back returns to Detail).
+                                errorMsg = error.localizedMessage ?: error.errorCodeName
+                                isBuffering = false
+                            }
+                        } finally {
+                            failoverInFlight = false
                         }
                     }
                 } else {
+                    lastPositionMs.value = exoPlayer.currentPosition
                     errorMsg = error.localizedMessage ?: error.errorCodeName
                     isBuffering = false
                 }
@@ -323,6 +342,34 @@ fun PlayerScreen(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.Center),
             )
+        }
+
+        // Spec §6: brief "Trying another source…" during failover.
+        if (session?.isFailingOver == true) {
+            Text(
+                text = "Trying another source…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.Center).padding(top = 64.dp),
+            )
+        }
+
+        // "Couldn't load next episode" — spec §4: action is Back, not Retry.
+        if (nextEpFailed) {
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Couldn't load next episode",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Red,
+                )
+                Button(onClick = onBack) {
+                    Text("Back")
+                }
+            }
         }
 
         errorMsg?.let { msg ->
