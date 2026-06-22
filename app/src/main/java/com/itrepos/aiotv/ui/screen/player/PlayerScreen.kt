@@ -177,7 +177,18 @@ fun PlayerScreen(
             .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .build()
-            .apply { setWakeMode(C.WAKE_MODE_NETWORK) }
+            .apply {
+                setWakeMode(C.WAKE_MODE_NETWORK)
+                // Smart defaults for in-stream tracks: prefer English audio (DefaultTrackSelector
+                // does prefix/subtag matching, so en-GB/en-US/eng also match; falls back to the
+                // source default when there is no English track) and keep subtitles OFF so a
+                // default-flagged foreign sub never auto-appears. The user overrides per-play via
+                // PlayerView's CC button / gear menu, which flips this disabled flag for us.
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setPreferredAudioLanguage("en")
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+            }
     }
 
     // Surface playback errors and buffering state instead of a silent black screen.
@@ -317,6 +328,7 @@ fun PlayerScreen(
                     player = exoPlayer
                     useController = true
                     keepScreenOn = true
+                    setShowSubtitleButton(true)
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
