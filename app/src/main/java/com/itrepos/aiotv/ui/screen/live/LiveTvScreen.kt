@@ -159,69 +159,16 @@ fun LiveTvScreen(
         }
 
         if (wide) {
-            // ── Wide layout: left rail with Sky-style category trigger + fav-categories ──
+            // ── Wide / TV layout: persistent focusable category rail (no modal picker) + content ──
             Row(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier
-                        .width(240.dp)
-                        .fillMaxHeight()
-                        .background(SurfaceCard)
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    // Sky-style single category trigger: "All Channels ▾" or "<Category> ▾"
-                    AssistChip(
-                        onClick = { showCategoryPicker = true },
-                        label = { Text(categoryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        trailingIcon = {
-                            Icon(
-                                Icons.Filled.KeyboardArrowDown,
-                                contentDescription = "Open category picker",
-                                modifier = Modifier.size(AssistChipDefaults.IconSize),
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    // Non-interactive region caption — scope reminder; change regions in Settings.
-                    if (regionCaption.isNotEmpty()) {
-                        Text(
-                            regionCaption,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                        )
-                    }
-
-                    // Favourite category quick chips
-                    if (state.favCategories.isNotEmpty()) {
-                        Text(
-                            "Favourite categories",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                        )
-                        state.favCategories.forEach { cat ->
-                            val isSelected = cat.id == state.selectedCategoryId
-                            Text(
-                                cat.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isSelected) AccentPrimary else Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        if (isSelected) AccentPrimary.copy(alpha = 0.15f)
-                                        else Color.Transparent
-                                    )
-                                    .clickable { viewModel.selectCategory(cat.id) }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                            )
-                        }
-                        Spacer(Modifier.height(4.dp))
-                    }
-                }
+                CategoryRail(
+                    categories = state.categories,
+                    selectedId = state.selectedCategoryId,
+                    favouriteIds = favCategoryIds,
+                    regionCaption = regionCaption,
+                    onSelect = viewModel::selectCategory,
+                    modifier = Modifier.width(260.dp).fillMaxHeight(),
+                )
 
                 // Right pane: search + content
                 Column(
