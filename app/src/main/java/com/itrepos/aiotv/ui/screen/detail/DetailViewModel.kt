@@ -94,7 +94,7 @@ class DetailViewModel @Inject constructor(
             val hashes = streams.mapNotNull { it.infoHash }
             val cached = if (hashes.isNotEmpty()) torBoxRepo.checkCached(hashes) else emptyMap()
             val ranked = StreamRanker.rank(
-                streams.map { s -> s.copy(isCached = cached[s.infoHash?.lowercase()] == true) }
+                streams.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) }
             )
             _state.value = DetailState(
                 isLoading = false,
@@ -145,7 +145,7 @@ class DetailViewModel @Inject constructor(
                 emptyMap()
             }
             val ranked = StreamRanker.rank(
-                raw.map { s -> s.copy(isCached = cached[s.infoHash?.lowercase()] == true) }
+                raw.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) }
             )
             _state.value = _state.value.copy(episodeStreams = ranked)
 

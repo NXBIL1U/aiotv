@@ -53,13 +53,22 @@ fun DetailScreen(
 
             val sourcesEpisode = state.sourcesForEpisode
             if (sourcesEpisode != null) {
-                SourcesSheet(
-                    streams = state.episodeStreams,
-                    onPick = { stream ->
-                        viewModel.playSpecificStream(stream, sourcesEpisode, onPlayStream)
-                    },
-                    onDismiss = { viewModel.dismissSources() },
-                )
+                if (isTv) {
+                    SourcesList(
+                        streams = state.episodeStreams,
+                        onPick = { stream ->
+                            viewModel.playSpecificStream(stream, sourcesEpisode, onPlayStream)
+                        },
+                    )
+                } else {
+                    SourcesSheet(
+                        streams = state.episodeStreams,
+                        onPick = { stream ->
+                            viewModel.playSpecificStream(stream, sourcesEpisode, onPlayStream)
+                        },
+                        onDismiss = { viewModel.dismissSources() },
+                    )
+                }
             }
         }
     }
