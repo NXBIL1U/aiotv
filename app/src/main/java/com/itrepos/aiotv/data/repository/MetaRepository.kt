@@ -74,6 +74,37 @@ suspend fun fetchFromHosts(
     return null
 }
 
+/**
+ * Tries each Cinemeta host in order for movie (or any non-series) meta.
+ * Returns the first [MediaItem] whose name is non-blank, or null if all hosts fail.
+ */
+suspend fun fetchMovieFromHosts(
+    hosts: List<String>,
+    type: String,
+    id: String,
+    fetch: suspend (url: String) -> StremioMeta?,
+): MediaItem? {
+    for (host in hosts) {
+        try {
+            val m = fetch(metaUrl(host, type, id)) ?: continue
+            if (m.name.isNotBlank()) return MediaItem(
+                id = m.id,
+                type = m.type,
+                name = m.name,
+                description = m.description,
+                posterUrl = m.poster,
+                backdropUrl = m.background,
+                year = m.year?.take(4)?.toIntOrNull(),
+                genres = m.genres,
+                imdbRating = m.imdbRating,
+            )
+        } catch (_: Exception) {
+            // try next host
+        }
+    }
+    return null
+}
+
 @Singleton
 class MetaRepository @Inject constructor(
     private val stremioApi: StremioApi,
@@ -96,8 +127,15 @@ class MetaRepository @Inject constructor(
         }
     }
 
-    suspend fun getMovieMeta(type: String, id: String): MediaItem? =
-        try {
+    suspend fun getMovieMeta(type: String, id: String): MediaItem? {
+        // Try Cinemeta hosts first
+        val cinemeta = fetchMovieFromHosts(CINEMETA_HOSTS, type, id) { url ->
+            stremioApi.getMeta(url).meta
+        }
+        if (cinemeta != null) return cinemeta
+
+        // Fall back to any installed addon that provides movie meta
+        return try {
             stremioRepository.getMeta(type, id)?.let { m ->
                 MediaItem(
                     id = m.id,
@@ -114,4 +152,5 @@ class MetaRepository @Inject constructor(
         } catch (_: Exception) {
             null
         }
+    }
 }
