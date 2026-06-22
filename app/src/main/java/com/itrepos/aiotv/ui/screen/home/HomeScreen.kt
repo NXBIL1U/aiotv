@@ -21,10 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.R
+import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.ui.components.ContentRail
 import com.itrepos.aiotv.ui.components.HeroSection
 import com.itrepos.aiotv.ui.components.MediaCard
@@ -47,11 +49,22 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    val ctx = LocalContext.current
+    LaunchedEffect(state.directError) {
+        state.directError?.let {
+            android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.clearDirectError()
+        }
+    }
+
+    val onPlayDirect: (MediaItem) -> Unit = { item ->
+        viewModel.playDirect(item) { url, t, pid -> onNavigate(Screen.Player.createRoute(url, t, pid)) }
+    }
     when {
-        isTv -> TvHomeLayout(state, selectedScreen, onNavigate)
+        isTv -> TvHomeLayout(state, selectedScreen, onNavigate, onPlayDirect)
         windowSizeClass.widthSizeClass == WindowWidthSizeClass.Compact ->
-            PhoneHomeLayout(state, selectedScreen, onNavigate)
-        else -> MediumHomeLayout(state, selectedScreen, onNavigate)
+            PhoneHomeLayout(state, selectedScreen, onNavigate, onPlayDirect)
+        else -> MediumHomeLayout(state, selectedScreen, onNavigate, onPlayDirect)
     }
 }
 
@@ -60,6 +73,7 @@ private fun TvHomeLayout(
     state: HomeUiState,
     selectedScreen: String,
     onNavigate: (String) -> Unit,
+    onPlayDirect: (MediaItem) -> Unit,
 ) {
     val firstCardFocus = remember { FocusRequester() }
     Row(
@@ -71,6 +85,7 @@ private fun TvHomeLayout(
         HomeContent(
             state = state,
             onNavigate = onNavigate,
+            onPlayDirect = onPlayDirect,
             modifier = Modifier.weight(1f),
             firstCardFocus = firstCardFocus,
         )
@@ -86,10 +101,11 @@ private fun MediumHomeLayout(
     state: HomeUiState,
     selectedScreen: String,
     onNavigate: (String) -> Unit,
+    onPlayDirect: (MediaItem) -> Unit,
 ) {
     Row(Modifier.fillMaxSize()) {
         SideNavRail(selectedRoute = selectedScreen, onNavigate = onNavigate)
-        HomeContent(state = state, onNavigate = onNavigate, modifier = Modifier.weight(1f))
+        HomeContent(state = state, onNavigate = onNavigate, onPlayDirect = onPlayDirect, modifier = Modifier.weight(1f))
     }
 }
 
@@ -98,11 +114,12 @@ private fun PhoneHomeLayout(
     state: HomeUiState,
     selectedScreen: String,
     onNavigate: (String) -> Unit,
+    onPlayDirect: (MediaItem) -> Unit,
 ) {
     Scaffold(
         bottomBar = { PhoneBottomNav(selectedRoute = selectedScreen, onNavigate = onNavigate) }
     ) { padding ->
-        HomeContent(state = state, onNavigate = onNavigate, modifier = Modifier.padding(padding))
+        HomeContent(state = state, onNavigate = onNavigate, onPlayDirect = onPlayDirect, modifier = Modifier.padding(padding))
     }
 }
 
@@ -110,6 +127,7 @@ private fun PhoneHomeLayout(
 private fun HomeContent(
     state: HomeUiState,
     onNavigate: (String) -> Unit,
+    onPlayDirect: (MediaItem) -> Unit,
     modifier: Modifier = Modifier,
     firstCardFocus: FocusRequester? = null,
 ) {
@@ -181,6 +199,8 @@ private fun HomeContent(
                             onClick = {
                                 onNavigate(Screen.Detail.createRoute(item.type, item.id))
                             },
+                            onPlay = { onPlayDirect(item) },
+                            isResolving = state.resolvingId == item.id,
                         )
                     }
                 }
@@ -200,6 +220,8 @@ private fun HomeContent(
                             onClick = {
                                 onNavigate(Screen.Detail.createRoute(item.type, item.id))
                             },
+                            onPlay = { onPlayDirect(item) },
+                            isResolving = state.resolvingId == item.id,
                         )
                     }
                 }

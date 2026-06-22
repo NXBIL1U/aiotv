@@ -3,6 +3,7 @@ package com.itrepos.aiotv.ui.screen.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.itrepos.aiotv.domain.model.MediaItem
+import com.itrepos.aiotv.domain.usecase.PlayDirectUseCase
 import com.itrepos.aiotv.domain.usecase.SearchVodUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -20,15 +21,32 @@ data class SearchState(
     val mediaResults: List<MediaItem> = emptyList(),
     val isSearching: Boolean = false,
     val error: String? = null,
+    val resolvingId: String? = null,
+    val directError: String? = null,
 )
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val searchVod: SearchVodUseCase,
+    private val playDirectUseCase: PlayDirectUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchState())
     val state: StateFlow<SearchState> = _state.asStateFlow()
+
+    /** ▶-on-card: resolve + auto-pick a source and hand the player route back via [onResolved]. */
+    fun playDirect(item: MediaItem, onResolved: (url: String, title: String, progressId: String) -> Unit) {
+        if (_state.value.resolvingId != null) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(resolvingId = item.id, directError = null)
+            val result = playDirectUseCase(item)
+            _state.value = _state.value.copy(resolvingId = null)
+            if (result != null) onResolved(result.url, result.title, result.progressId)
+            else _state.value = _state.value.copy(directError = "Couldn't find a playable source")
+        }
+    }
+
+    fun clearDirectError() { _state.value = _state.value.copy(directError = null) }
 
     private val _queryFlow = MutableStateFlow("")
 

@@ -52,6 +52,14 @@ fun SearchScreen(
     val state by viewModel.state.collectAsState()
     val focusRequester = remember { FocusRequester() }
 
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(state.directError) {
+        state.directError?.let {
+            android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.clearDirectError()
+        }
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
@@ -134,6 +142,12 @@ fun SearchScreen(
                                     title = item.name,
                                     imageUrl = item.posterUrl,
                                     onClick = { onNavigate(Screen.Detail.createRoute(item.type, item.id)) },
+                                    onPlay = {
+                                        viewModel.playDirect(item) { url, t, pid ->
+                                            onNavigate(Screen.Player.createRoute(url, t, pid))
+                                        }
+                                    },
+                                    isResolving = state.resolvingId == item.id,
                                 )
                             }
                         }
@@ -164,6 +178,12 @@ fun SearchScreen(
                                     title = item.name,
                                     imageUrl = item.posterUrl,
                                     onClick = { onNavigate(Screen.Detail.createRoute(item.type, item.id)) },
+                                    onPlay = {
+                                        viewModel.playDirect(item) { url, t, pid ->
+                                            onNavigate(Screen.Player.createRoute(url, t, pid))
+                                        }
+                                    },
+                                    isResolving = state.resolvingId == item.id,
                                 )
                             }
                         }
