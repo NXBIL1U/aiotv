@@ -43,6 +43,8 @@ suspend fun fetchSearchFromHosts(
     for (host in hosts) {
         try {
             return fetch(searchUrl(host, type, query))
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
         } catch (_: Exception) {}
     }
     return null

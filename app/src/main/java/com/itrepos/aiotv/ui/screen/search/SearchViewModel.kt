@@ -9,6 +9,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -37,7 +38,7 @@ class SearchViewModel @Inject constructor(
             _queryFlow
                 .debounce(400)
                 .distinctUntilChanged()
-                .collect { q -> if (q.length >= 2) search(q) else clearResults() }
+                .collectLatest { q -> if (q.length >= 2) search(q) else clearResults() }
         }
     }
 
@@ -51,6 +52,8 @@ class SearchViewModel @Inject constructor(
         try {
             val results = searchVod(query)
             _state.value = _state.value.copy(isSearching = false, mediaResults = results)
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
         } catch (e: Exception) {
             _state.value = _state.value.copy(
                 isSearching = false,
