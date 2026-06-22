@@ -25,3 +25,5 @@ fun metaUrl(baseUrl: String, type: String, id: String) =
 
 fun streamUrl(baseUrl: String, type: String, id: String) =
     "${baseUrl.trimEnd('/')}/stream/$type/$id.json"
+
+val CINEMETA_HOSTS = listOf("https://cinemeta-live.strem.io", "https://v3-cinemeta.strem.fun")
