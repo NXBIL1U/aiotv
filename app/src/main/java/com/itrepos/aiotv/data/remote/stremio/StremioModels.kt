@@ -57,9 +57,12 @@ data class StremioMeta(
 data class StremioVideo(
     val id: String,
     val title: String? = null,
+    val name: String? = null,
     val season: Int? = null,
     val episode: Int? = null,
     val released: String? = null,
+    val overview: String? = null,
+    val thumbnail: String? = null,
 )
 
 @Serializable

@@ -8,6 +8,8 @@ import com.itrepos.aiotv.data.remote.stremio.StremioStream
 import com.itrepos.aiotv.data.remote.stremio.catalogUrl
 import com.itrepos.aiotv.data.remote.stremio.metaUrl
 import com.itrepos.aiotv.data.remote.stremio.streamUrl
+import com.itrepos.aiotv.domain.StreamParsing
+import com.itrepos.aiotv.domain.model.BehaviorHints
 import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.domain.model.Stream
 import kotlinx.coroutines.flow.first
@@ -78,11 +80,21 @@ class StremioRepository @Inject constructor(
         genres = genres, imdbRating = imdbRating,
     )
 
-    private fun StremioStream.toStream() = Stream(
-        title = title ?: name,
-        url = url,
-        infoHash = infoHash,
-        fileIdx = fileIdx,
-        behaviorHints = behaviorHints?.let { com.itrepos.aiotv.domain.model.BehaviorHints(it.bingeGroup, it.filename) },
-    )
+    private fun StremioStream.toStream(): Stream {
+        val detectText = listOfNotNull(name, title, behaviorHints?.filename).joinToString(" ")
+        return Stream(
+            title = title ?: name,
+            url = url,
+            infoHash = infoHash,
+            fileIdx = fileIdx,
+            behaviorHints = behaviorHints?.let { BehaviorHints(it.bingeGroup, it.filename) },
+            isCached = StreamParsing.isTbCached(name),
+            name = name,
+            quality = StreamParsing.quality(detectText),
+            seeders = StreamParsing.seeders(title),
+            sizeBytes = StreamParsing.sizeBytes(title),
+            languageScore = StreamParsing.languageScore(detectText),
+            bingeGroup = behaviorHints?.bingeGroup,
+        )
+    }
 }
