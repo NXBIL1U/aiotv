@@ -2,6 +2,8 @@ package com.itrepos.aiotv.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.itrepos.aiotv.data.local.db.AppDatabase
 import com.itrepos.aiotv.data.local.db.dao.CacheMetaDao
 import com.itrepos.aiotv.data.local.db.dao.CategoryDao
@@ -20,10 +22,20 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
+    // v1→2 added ChannelEntity.channelNo. A real migration (not destructive) so the upgrade
+    // keeps the user's favourites + recently-watched (separate tables in the same DB).
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE channels ADD COLUMN channelNo INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "aiotv.db")
+            .addMigrations(MIGRATION_1_2)
+            // Backstop only — explicit migrations above preserve favourites/recents on upgrade.
             .fallbackToDestructiveMigration()
             .build()
 

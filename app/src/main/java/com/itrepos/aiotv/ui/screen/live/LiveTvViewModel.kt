@@ -218,16 +218,8 @@ class LiveTvViewModel @Inject constructor(
         queryFlow.value = ""
         _state.update { it.copy(selectedCategoryId = id, query = "") }
     }
-
-    /**
-     * Persist the user's region selection. The [appDataStore.liveRegions] Flow will emit the
-     * new value and the [flatMapLatest] in [observeRoomFlows] will automatically re-query Room.
-     */
-    fun setRegions(regions: Set<String>) {
-        viewModelScope.launch {
-            appDataStore.setLiveRegions(regions)
-        }
-    }
+    // Region selection now lives in Settings (SettingsViewModel.setLiveRegions); the Live TV
+    // screen only reacts to AppDataStore.liveRegions via observeRoomFlows.
 
     /**
      * Update the search query. The combined channel-list flow debounces [queryFlow] (250ms) and
