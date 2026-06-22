@@ -153,19 +153,19 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
       *does* work; this is specifically about the hinge crease.
 - [ ] `[P2]` **Detail screen has no poster/backdrop art on phone** — only the two-pane
       (≥840dp) layout shows artwork; single-column should too. _(found 2026-06-21)_
-- [ ] `[P1]` **TV overscan missing on Settings/Search/Detail** — only Home/Guide apply the
-      10-foot safe-area margins. _(found 2026-06-21)_
+- [~] `[P1]` **TV overscan missing on Settings/Search/Detail** — only Home/Guide apply the
+      10-foot safe-area margins. _(found 2026-06-21)_ **Search overscan added (2026-06-22, branch
+      `feat/search-vod-home`).** Settings + Detail still pending.
 - [ ] `[P2]` **TV: Settings auto-focuses first field** → on-screen keyboard pops immediately
       on entry; should require an explicit tap. _(found 2026-06-21)_
 
-- [ ] `[P2]` **Home screen → VOD network categories, NO live channels** (owner `nabz`, 2026-06-22).
+- [~] `[P2]` **Home screen → VOD network categories, NO live channels** (owner `nabz`, 2026-06-22).
       Home should show **network/provider rows (Netflix, Disney, …) from the VOD side (Stremio
-      addon catalogs → TorBox/Torrentio)** + hero + Continue Watching; **remove the IPTV "live now"
-      rail** entirely (live TV stays in the Live TV tab). **Also fixes Home's slow first paint:**
-      `HomeViewModel.loadContent()` awaits `getChannels()` (→ `LiveTvRepository.getChannelsOnce()`,
-      which loads **all 27.5k** channels mapped to domain, plus a ~36s 7.6 MB refetch on a stale
-      cache) and only clears `isLoading` once all rails finish. Fix: drop the channel load from
-      Home + let each rail fill independently. Needs a brainstorm: how "networks" map to the
+      addon catalogs → TorBox/Torrentio)** + hero + Continue Watching; live TV stays in the Live TV
+      tab. **Channel-strip + slow-paint fix shipped (2026-06-22, branch `feat/search-vod-home`):**
+      the "Live Now" rail and the 27.5k-channel `getChannels()` call have been removed from Home —
+      Home now paints in ~3 s (was ~14 s). Still TODO (nabz): the actual **VOD network-category
+      rows** (one row per network/provider catalog). Needs a brainstorm: how "networks" map to the
       configured Stremio addon catalogs (one row per catalog? grouped?). See DESIGN §8.
 - [~] `[P4]` **App-wide Netflix-style navigation + visual refresh** (workstream, web-validated). Spec:
       `docs/superpowers/specs/2026-06-22-app-shell-visual-refresh.md`.
@@ -183,10 +183,13 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
 - [ ] `[P2]` **Auto-next-episode / binge** — after an episode ends, auto-advance to the next
       episode. Use the `bingeGroup` field in stream metadata to group episodes; hook into the
       existing Player 20 s auto-advance mechanism.
-- [ ] `[P2]` **VOD search — needs a search-capable meta source** — current search returns only
-      IPTV channels. Cinemeta is an internal meta provider but is not installed as a user addon
-      search catalog; the "Streaming Catalogs" addon is catalog-only. Install or wire a
-      Cinemeta-style search catalog/addon to make VOD titles discoverable via search.
+- [x] `[P2]` **VOD search — needs a search-capable meta source** — **shipped (2026-06-22, branch
+      `feat/search-vod-home`):** main Search now queries Cinemeta's search catalog
+      (`catalog/<type>/top/search=<query>.json`, host fallback cinemeta-live → v3) for both movies
+      and series; IMDb-id results route to the existing Detail page. Channels removed from main
+      Search (channel search stays in Live TV tab). Wired behind a `SearchRepository` seam for
+      future providers. Validated on phone emulator: "inception" → film, "rick and morty" → series.
+      _(resolved 2026-06-22)_
 - [ ] `[P3]` **TV-emulator validation pass** — re-validate Detail + episode playback, D-pad
       Sources list, and focus behaviour on the TV emulator after series-spine work. (Only phone
       emulator validated so far.)

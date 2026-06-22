@@ -148,8 +148,11 @@ player listener.
   "unified VOD + live" Home idea in §4. Open design Q: how "networks" map to the configured addon
   catalogs. The **"Streaming Catalogs" addon** already installed provides exactly these network
   catalogs — Netflix, Disney+, Prime Video, Apple TV+, HBO Max, Crunchyroll, ITVX, BBC iPlayer,
-  Channel 4 (movie + series rows each) — and is the intended data source for this redesign.
-  Removing the current 27.5k-channel Home load also fixes Home's slow first paint.)_
+  Channel 4 (movie + series rows each) — and is the intended data source for this redesign.)_
+  **Live-channel rail + 27.5k-channel load removed (2026-06-22, branch `feat/search-vod-home`):**
+  the "Live Now" rail and the `getChannels()` call that gated Home's first paint are gone —
+  Home now paints in ~3 s (was ~14 s). The **VOD network-category rows remain nabz's separate
+  work** and are not yet implemented.
 - **Detail (VOD series + movies — shipped 2026-06-22, branch `feat/vod-series-spine`):**
   **Netflix-style Detail page** — hero backdrop, title · year · genres · ★rating, resume-aware
   Play button, discreet Sources override, overview, season selector (specials last), episode list
@@ -162,11 +165,15 @@ player listener.
   best cached source (20 s auto-advance past dead torrent picks; Sources sheet fallback).
   Per-episode resume is keyed on episode id (Player `progressId` route param).
   Validated: Rick & Morty S1E1 plays + resumes; Aftersun shows title + overview; two-pane landscape.
-- **VOD search gap (found 2026-06-22):** VOD search currently returns only IPTV channels — there is
-  no search-capable VOD meta source. The "Streaming Catalogs" addon is catalog-only; Cinemeta is not
-  installed as a user addon search catalog. (This likely explains an earlier bug report: tapping a
-  live "HIMYM" channel rather than the series.) Fixing VOD search requires a Cinemeta-style
-  search-capable meta addon.
+- **VOD search — resolved (2026-06-22, branch `feat/search-vod-home`):** main Search now queries
+  **Cinemeta's search catalog** (`catalog/<type>/top/search=<query>.json`, host fallback
+  `cinemeta-live` → `v3`) for both **movies and series**, returning IMDb-id results that route
+  to the existing Detail page. Validated: "inception" returns the film; "rick and morty" returns
+  the series (a real index, not the old browse-catalog substring filter). Wired behind a
+  `SearchRepository` seam so other providers (TMDB, etc.) can be added later. **Channels removed
+  from main Search** (placeholder now "Search movies & series…"); channel search remains only in
+  the Live TV tab. Search also received TV overscan margins and an explicit "Search unavailable"
+  error state.
 - **App shell & identity — theme foundation shipped; nav shell + icon pending.**
   The **dark + Netflix-red theme foundation** (`ui/theme/`) shipped as part of the series-spine
   work (2026-06-22): tonal red for interactive per a11y; raw `#E50914` on brand surfaces only.
