@@ -266,3 +266,9 @@ opens instantly from a Room disk cache and refreshes in the background; Live TV 
 action, favourite channels & categories, recently-watched, and searchable region/category pickers.
 Built subagent-driven and final-reviewed. Remaining Phase-1 work: onboarding wizard, dedicated
 Sources screen, and wiring cache-invalidation to source edits.
+
+A follow-up **Sky-style refinement** (validated against Sky's mobile TV Guide) then made Live TV
+cohere: a single category filter ("All Channels ▾"; region moved to Settings), Sky-style rows
+(channel number + now/next times + a progress bar), and a persistent D-pad category rail on
+wide/TV. Open follow-ups: a TV-emulator pass, and the app-wide nav model (only Home currently
+shows the rail/bottom bar — see §4 IA).

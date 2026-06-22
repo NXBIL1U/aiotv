@@ -80,7 +80,17 @@ Phases: **P0** stabilise/verify · **P1** foundations · **P2** core VOD · **P3
   subagent-driven, final-reviewed (fixed: search-collector leak, search-clear not restoring the
   scoped list, plain-M3U regression, clearCache wiping favourites, over-eager region codes).
   **Validated on the phone emulator** (via VPN): instant cache-first opens, region default,
-  favourites/recents, search + clear, pickers. _Pending: validate on TV/foldable form factors._
+  favourites/recents, search + clear, pickers.
+- **Live TV Sky-style refinement (2026-06-22):** after a UX review + the owner's Sky-mobile-EPG
+  reference, made it cohere — **one** filter (a single "All Channels ▾" category trigger; **Region
+  moved to Settings**, shown as an "EN · UK · US" caption); **Sky-style rows** (channel number +
+  logo, now `HH:mm · title` with a **progress bar**, next `HH:mm · title`, ★); and a **persistent
+  D-pad category rail** on wide/TV (replacing the modal picker there). Final-reviewed (fixed: a
+  real Room 1→2 migration so upgrades keep favourites/recents; removed dead `setRegions`). Plan:
+  `docs/superpowers/plans/2026-06-22-live-tv-sky-refinement.md`. Validated on the phone emulator
+  (Sky rows confirmed on FANDUEL ch 5208; landscape rail) — _TV-emulator pass still pending._
+  Note: only Home renders the app nav rail/bottom bar (pre-existing IA); inner screens are
+  full-screen pushes — a separate app-wide nav cleanup (DESIGN §4).
 - **Network note:** the owner's UK ISP (Virgin Media) **blocks the IPTV provider's IP range**
   (`149.18.45.x`) — confirmed by TCP-unreachable from Virgin vs. reachable over a VPN. So live TV
   needs a VPN on the owner's network during ISP IPTV blocking (common around live football).
