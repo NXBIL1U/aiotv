@@ -20,9 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,8 +48,10 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -60,8 +65,23 @@ fun PlayerScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var isBuffering by remember { mutableStateOf(true) }
+
+    // The now-playing session (null for live channels / direct plays). When it matches this route's
+    // progressId, the controller's currentUrl wins (it may have failed over); otherwise the route
+    // url is the baseline (live IPTV, process-death fallback) and there is no failover/next.
+    val playbackState by viewModel.playbackState.collectAsState()
+    val session = playbackState?.takeIf { it.progressId == progressId }
+    val playUrl = session?.currentUrl ?: url
+    val playProgressId = session?.progressId ?: progressId
+    // The error listener is registered once (keyed on exoPlayer); read the latest session via this.
+    val hasSession by rememberUpdatedState(session != null)
+
+    // Resume rule: a failover keeps the position (same progressId), a new episode starts fresh.
+    val lastPositionMs = remember { mutableStateOf(0L) }
+    val lastProgressId = remember { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
         // Many IPTV / Xtream / VOD servers reject the default ExoPlayer User-Agent
@@ -78,8 +98,13 @@ fun PlayerScreen(
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
+        // Fail fast: a dead URL surfaces onPlayerError quickly so failover can swap sources
+        // instead of ExoPlayer retrying the same broken source many times.
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+            .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(/* minLoadableRetryCount = */ 1))
+
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -90,8 +115,23 @@ fun PlayerScreen(
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
-                errorMsg = error.localizedMessage ?: error.errorCodeName
-                isBuffering = false
+                // Remember where we were so a failover resumes at the same spot.
+                lastPositionMs.value = exoPlayer.currentPosition
+                if (hasSession) {
+                    // Silent mid-play failover: try the next candidate source for the same item.
+                    isBuffering = true
+                    scope.launch {
+                        val advanced = viewModel.failover()
+                        if (!advanced) {
+                            // Sources exhausted — surface the error + Retry (Back returns to Detail).
+                            errorMsg = error.localizedMessage ?: error.errorCodeName
+                            isBuffering = false
+                        }
+                    }
+                } else {
+                    errorMsg = error.localizedMessage ?: error.errorCodeName
+                    isBuffering = false
+                }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -104,19 +144,27 @@ fun PlayerScreen(
     }
 
     // Set the media item, hinting the container type (extension-less IPTV/redirect
-    // URLs otherwise get misdetected as progressive), and resume from saved position.
-    LaunchedEffect(url) {
+    // URLs otherwise get misdetected as progressive). Re-keyed on (playUrl, playProgressId) so a
+    // failover (new url, same progressId) and a next-episode (new url + progressId) both re-run.
+    LaunchedEffect(playUrl, playProgressId) {
         val mime = when {
-            url.contains(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
-            url.contains(".mpd", ignoreCase = true) -> MimeTypes.APPLICATION_MPD
+            playUrl.contains(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
+            playUrl.contains(".mpd", ignoreCase = true) -> MimeTypes.APPLICATION_MPD
             // Xtream live is raw MPEG-TS (.ts) — hint it so ExoPlayer picks the TS extractor
             // instead of sniffing/misdetecting the continuous progressive stream.
-            url.contains(".ts", ignoreCase = true) -> MimeTypes.VIDEO_MP2T
+            playUrl.contains(".ts", ignoreCase = true) -> MimeTypes.VIDEO_MP2T
             else -> null
         }
-        val startPositionMs = viewModel.getStartPosition(progressId)
+        // Resume rule: failover (same progressId) keeps the captured position; a new episode
+        // (changed progressId) starts from its own saved progress.
+        val startPositionMs = if (playProgressId == lastProgressId.value) {
+            lastPositionMs.value
+        } else {
+            viewModel.getStartPosition(playProgressId)
+        }
+        lastProgressId.value = playProgressId
         val mediaItem = MediaItem.Builder()
-            .setUri(url)
+            .setUri(playUrl)
             .apply { mime?.let { setMimeType(it) } }
             .build()
         exoPlayer.setMediaItem(mediaItem, startPositionMs)
@@ -124,13 +172,16 @@ fun PlayerScreen(
         exoPlayer.playWhenReady = true
     }
 
-    // Periodically persist watch progress.
-    LaunchedEffect(exoPlayer) {
+    // Periodically persist watch progress (and track the live position for the resume rule).
+    LaunchedEffect(exoPlayer, playProgressId) {
         while (true) {
             delay(5_000)
             val pos = exoPlayer.currentPosition
             val dur = exoPlayer.duration.takeIf { it > 0 } ?: 0L
-            if (pos > 0) viewModel.saveProgress(progressId, pos, dur)
+            if (pos > 0) {
+                lastPositionMs.value = pos
+                viewModel.saveProgress(playProgressId, pos, dur)
+            }
         }
     }
 
@@ -152,7 +203,9 @@ fun PlayerScreen(
         onDispose {
             val pos = exoPlayer.currentPosition
             val dur = exoPlayer.duration.takeIf { it > 0 } ?: 0L
-            if (pos > 0) viewModel.saveProgress(progressId, pos, dur)
+            // Use the most recently played progressId (tracked by the media LaunchedEffect) so a
+            // post-advance dispose saves against the right episode, not the route's original arg.
+            if (pos > 0) viewModel.saveProgress(lastProgressId.value ?: playProgressId, pos, dur)
             exoPlayer.release()
         }
     }

@@ -11,6 +11,7 @@ import com.itrepos.aiotv.domain.StreamRanker
 import com.itrepos.aiotv.domain.model.Episode
 import com.itrepos.aiotv.domain.model.MediaItem
 import com.itrepos.aiotv.domain.model.Stream
+import com.itrepos.aiotv.domain.playback.PlaybackController
 import com.itrepos.aiotv.domain.usecase.GetStreamsUseCase
 import com.itrepos.aiotv.domain.usecase.ResolveStreamUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 enum class DetailKind { MOVIE, SERIES }
@@ -50,13 +50,11 @@ class DetailViewModel @Inject constructor(
     private val torBoxRepo: TorBoxRepository,
     private val resolveStream: ResolveStreamUseCase,
     private val appDataStore: AppDataStore,
+    private val playbackController: PlaybackController,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DetailState())
     val state: StateFlow<DetailState> = _state.asStateFlow()
-
-    /** Short auto-advance budget for torrent picks (cached picks resolve instantly anyway). */
-    private val resolveTimeoutMs = 20_000L
 
     fun load(type: String, id: String) {
         viewModelScope.launch {
@@ -144,31 +142,19 @@ class DetailViewModel @Inject constructor(
             )
             _state.value = _state.value.copy(episodeStreams = ranked)
 
-            val url = resolveBestCandidate(ranked)
-            if (url != null) {
+            // Start a controller session: it resolves the best candidate and holds the ranked list
+            // so the Player can silently fail over / advance to the next episode.
+            val series = _state.value.series
+            val started = series != null && playbackController.startSeries(series, episode, ranked)
+            if (started) {
                 _state.value = _state.value.copy(resolvingEpisode = null)
-                onPlay(url, episodeTitle(episode), episode.id)
+                val session = playbackController.state.value!!
+                onPlay(session.currentUrl, episodeTitle(episode), episode.id)
             } else {
                 // Nothing resolved automatically — fall back to a manual pick.
                 _state.value = _state.value.copy(resolvingEpisode = null, sourcesForEpisode = episode)
             }
         }
-    }
-
-    /** Iterate ranked candidates (cached first), resolving each with a short timeout. */
-    private suspend fun resolveBestCandidate(ranked: List<Stream>): String? {
-        for (stream in ranked) {
-            val result = if (stream.url != null) {
-                // Direct URL — resolves instantly, no timeout needed.
-                resolveStream(stream)
-            } else {
-                // Torrent — wrap in a short timeout so a dead pick auto-advances fast.
-                withTimeoutOrNull(resolveTimeoutMs) { resolveStream(stream) }
-            }
-            val url = result?.getOrNull()
-            if (url != null) return url
-        }
-        return null
     }
 
     /** Open the Sources sheet for manual selection. */
@@ -199,7 +185,11 @@ class DetailViewModel @Inject constructor(
         }
     }
 
-    /** Movie-path resolve (unchanged behaviour; routes through ResolveStreamUseCase). */
+    /**
+     * Movie-path resolve. Behaviour preserved (manual source pick via [ResolveStreamUseCase]), but
+     * now also starts a [PlaybackController] movie session so movies get mid-play failover too.
+     * The movie progressId is the resolved url (mirrors DetailScreen's `onPlayStream(url, title, url)`).
+     */
     fun resolveStream(stream: Stream, onResolved: (String) -> Unit) {
         if (_state.value.resolving) return
         viewModelScope.launch {
@@ -208,6 +198,15 @@ class DetailViewModel @Inject constructor(
             result.fold(
                 onSuccess = { url ->
                     _state.value = _state.value.copy(resolving = false, resolvedUrl = url)
+                    val streams = _state.value.streams
+                    val title = stream.title ?: _state.value.meta?.name ?: "Movie"
+                    playbackController.startMovie(
+                        candidates = streams,
+                        chosenIndex = streams.indexOf(stream),
+                        chosenUrl = url,
+                        title = title,
+                        progressId = url,
+                    )
                     onResolved(url)
                 },
                 onFailure = { e ->
