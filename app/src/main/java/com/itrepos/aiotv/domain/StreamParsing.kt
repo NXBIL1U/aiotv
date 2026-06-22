@@ -12,14 +12,16 @@ object StreamParsing {
         Regex("\\bSPA\\b|\\bSPANISH\\b|\\bLAT\\b", RegexOption.IGNORE_CASE),
     )
     private val english = Regex("\\bENG\\b|\\bENGLISH\\b|\\bAMZN\\b", RegexOption.IGNORE_CASE)
+    private val uhdRe = Regex("2160p|\\b4K\\b", RegexOption.IGNORE_CASE)
+    private val sdRe  = Regex("480p|\\bSD\\b|DVDRip|XviD", RegexOption.IGNORE_CASE)
 
     fun quality(text: String?): Quality {
         val t = text ?: return Quality.UNKNOWN
         return when {
-            Regex("2160p|\\b4K\\b", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Quality.UHD_2160
+            uhdRe.containsMatchIn(t) -> Quality.UHD_2160
             t.contains("1080p", true) -> Quality.HD_1080
             t.contains("720p", true) -> Quality.HD_720
-            Regex("480p|\\bSD\\b|DVDRip|XviD", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Quality.SD
+            sdRe.containsMatchIn(t) -> Quality.SD
             else -> Quality.UNKNOWN
         }
     }
@@ -27,18 +29,13 @@ object StreamParsing {
     fun sizeBytes(title: String?): Long? = title?.let {
         val m = sizeRe.find(it) ?: return null
         val n = m.groupValues[1].toDoubleOrNull() ?: return null
-        // Integer GB → binary GiB (n * 1024^3); fractional GB → decimal-to-MB then binary
-        // (n * 1000 MB * 1024^2). MB values use binary MiB (n * 1024^2).
         return if (m.groupValues[2].equals("GB", true)) {
-            if (n == n.toLong().toDouble()) {
-                n.toLong() * 1024L * 1024 * 1024
-            } else {
-                (n * 1000).toLong() * 1024L * 1024
-            }
+            (n * 1024.0 * 1024.0 * 1024.0).toLong()
         } else {
-            (n * 1024).toLong() * 1024L
+            (n * 1024.0 * 1024.0).toLong()
         }
     }
+    // [TB+] is a literal substring (Torrentio's TorBox-cached marker), not a regex character class.
     fun isTbCached(name: String?): Boolean = name?.contains("[TB+]") == true
     /** Higher = more likely English. */
     fun languageScore(text: String?): Int {
