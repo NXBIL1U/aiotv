@@ -153,8 +153,8 @@ private fun qualityLabel(q: Quality): String = when (q) {
 
 internal fun formatSize(bytes: Long?): String? {
     if (bytes == null || bytes <= 0) return null
-    val gb = bytes / 1_000_000_000.0
+    val gb = bytes / (1024.0 * 1024.0 * 1024.0)
     if (gb >= 1) return String.format("%.1f GB", gb)
-    val mb = bytes / 1_000_000.0
+    val mb = bytes / (1024.0 * 1024.0)
     return String.format("%.0f MB", mb)
 }

@@ -3,6 +3,7 @@ package com.itrepos.aiotv.ui.screen.detail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -377,7 +378,14 @@ private fun EpisodeRailCard(episode: Episode, progressFraction: Float, onClick: 
 @Composable
 private fun FindingSourceOverlay() {
     Box(
-        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)),
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f))
+            .clickable(
+                enabled = true,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+            ) {},
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

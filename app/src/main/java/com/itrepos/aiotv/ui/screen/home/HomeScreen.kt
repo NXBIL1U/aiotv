@@ -156,7 +156,12 @@ private fun HomeContent(
                             progress = progress.fraction,
                             modifier = focusMod(firstRail == "cw" && progress == state.continueWatching.first()),
                             onClick = {
-                                onNavigate(Screen.Player.createRoute(progress.id, "Resume"))
+                                val pid = progress.id
+                                if (Regex("^tt\\d+:\\d+:\\d+$").matches(pid)) {
+                                    onNavigate(Screen.Detail.createRoute("series", pid.substringBefore(":")))
+                                } else {
+                                    onNavigate(Screen.Player.createRoute(pid, "Resume"))
+                                }
                             },
                         )
                     }

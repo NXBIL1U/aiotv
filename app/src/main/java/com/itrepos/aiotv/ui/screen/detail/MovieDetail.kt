@@ -54,8 +54,6 @@ fun MovieDetail(
         }
     }
 
-    val playStream: (Stream) -> Unit = onPlayStream
-
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= 840.dp
 
@@ -84,7 +82,7 @@ fun MovieDetail(
                     StreamsList(
                         state = state,
                         firstStreamFocusRequester = firstStreamFocusRequester,
-                        onResolve = playStream,
+                        onResolve = onPlayStream,
                     )
                 }
             }
@@ -123,7 +121,7 @@ fun MovieDetail(
                             } else {
                                 Modifier
                             },
-                            onClick = { playStream(stream) },
+                            onClick = { onPlayStream(stream) },
                         )
                     }
                 }

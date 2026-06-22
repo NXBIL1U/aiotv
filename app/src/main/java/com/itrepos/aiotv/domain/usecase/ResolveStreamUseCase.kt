@@ -15,16 +15,22 @@ import javax.inject.Inject
 class ResolveStreamUseCase @Inject constructor(
     private val torBox: TorBoxRepository,
 ) {
-    suspend operator fun invoke(stream: Stream): Result<String> = runCatching {
-        stream.url ?: run {
-            val hash = stream.infoHash ?: error("Stream has no URL or info hash")
-            val torrentId = torBox.createTorrent("magnet:?xt=urn:btih:$hash")
-                ?: error("Failed to create torrent")
-            val info = torBox.pollUntilReady(torrentId)
-                ?: error("Torrent did not become ready")
-            val fileId = info.files.firstOrNull()?.id
-                ?: error("Torrent has no playable files")
-            torBox.getDownloadUrl(torrentId, fileId)
-        }
+    suspend operator fun invoke(stream: Stream): Result<String> = try {
+        Result.success(
+            stream.url ?: run {
+                val hash = stream.infoHash ?: error("Stream has no URL or info hash")
+                val torrentId = torBox.createTorrent("magnet:?xt=urn:btih:$hash")
+                    ?: error("Failed to create torrent")
+                val info = torBox.pollUntilReady(torrentId)
+                    ?: error("Torrent did not become ready")
+                val fileId = info.files.firstOrNull()?.id
+                    ?: error("Torrent has no playable files")
+                torBox.getDownloadUrl(torrentId, fileId)
+            }
+        )
+    } catch (c: kotlinx.coroutines.CancellationException) {
+        throw c
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }
