@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.itrepos.aiotv.domain.model.Quality
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -23,6 +24,7 @@ class AppDataStore @Inject constructor(
         val KEY_XMLTV_URL = stringPreferencesKey("xmltv_url")
         val KEY_ADDON_URLS = stringSetPreferencesKey("addon_urls")
         val KEY_LIVE_REGIONS = stringSetPreferencesKey("live_regions")
+        val KEY_PREFERRED_QUALITY = stringPreferencesKey("preferred_quality")
 
         /** Default regions shown on first launch — UK + US + EN (English-language scope). */
         val DEFAULT_LIVE_REGIONS = setOf("US", "UK", "EN")
@@ -39,6 +41,11 @@ class AppDataStore @Inject constructor(
     /** The set of region tags the user has selected for Live TV (default: US, UK, EN). */
     val liveRegions: Flow<Set<String>> = dataStore.data.map {
         it[KEY_LIVE_REGIONS] ?: DEFAULT_LIVE_REGIONS
+    }
+
+    /** The user's preferred playback quality for source ranking (default: HD_1080). */
+    val preferredQuality: Flow<Quality> = dataStore.data.map {
+        if (it[KEY_PREFERRED_QUALITY] == "2160p") Quality.UHD_2160 else Quality.HD_1080
     }
 
     suspend fun setTorBoxApiKey(key: String) = dataStore.edit { it[KEY_TORBOX_API_KEY] = key }
@@ -59,5 +66,10 @@ class AppDataStore @Inject constructor(
     /** Persist the selected Live TV region tags. */
     suspend fun setLiveRegions(regions: Set<String>) = dataStore.edit {
         it[KEY_LIVE_REGIONS] = regions
+    }
+
+    /** Persist the user's preferred playback quality. */
+    suspend fun setPreferredQuality(q: Quality) = dataStore.edit {
+        it[KEY_PREFERRED_QUALITY] = if (q == Quality.UHD_2160) "2160p" else "1080p"
     }
 }

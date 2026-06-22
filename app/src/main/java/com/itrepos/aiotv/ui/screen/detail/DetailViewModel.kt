@@ -2,6 +2,7 @@ package com.itrepos.aiotv.ui.screen.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.itrepos.aiotv.data.local.AppDataStore
 import com.itrepos.aiotv.data.repository.MetaRepository
 import com.itrepos.aiotv.data.repository.SeriesMeta
 import com.itrepos.aiotv.data.repository.StremioRepository
@@ -16,6 +17,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
@@ -47,6 +49,7 @@ class DetailViewModel @Inject constructor(
     private val getStreams: GetStreamsUseCase,
     private val torBoxRepo: TorBoxRepository,
     private val resolveStream: ResolveStreamUseCase,
+    private val appDataStore: AppDataStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DetailState())
@@ -93,8 +96,10 @@ class DetailViewModel @Inject constructor(
             val streams = getStreams(type, id)
             val hashes = streams.mapNotNull { it.infoHash }
             val cached = if (hashes.isNotEmpty()) torBoxRepo.checkCached(hashes) else emptyMap()
+            val pref = appDataStore.preferredQuality.first()
             val ranked = StreamRanker.rank(
-                streams.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) }
+                streams.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) },
+                pref,
             )
             _state.value = DetailState(
                 isLoading = false,
@@ -132,8 +137,10 @@ class DetailViewModel @Inject constructor(
             } else {
                 emptyMap()
             }
+            val pref = appDataStore.preferredQuality.first()
             val ranked = StreamRanker.rank(
-                raw.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) }
+                raw.map { s -> s.copy(isCached = s.isCached || cached[s.infoHash?.lowercase()] == true) },
+                pref,
             )
             _state.value = _state.value.copy(episodeStreams = ranked)
 

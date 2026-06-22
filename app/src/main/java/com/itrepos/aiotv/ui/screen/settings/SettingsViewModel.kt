@@ -3,6 +3,7 @@ package com.itrepos.aiotv.ui.screen.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.itrepos.aiotv.data.local.AppDataStore
+import com.itrepos.aiotv.domain.model.Quality
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,7 @@ data class SettingsState(
     val xmltvUrl: String = "",
     val addonUrls: Set<String> = emptySet(),
     val liveRegions: Set<String> = AppDataStore.DEFAULT_LIVE_REGIONS,
+    val preferredQuality: Quality = Quality.HD_1080,
     val saved: Boolean = false,
 )
 
@@ -54,6 +56,9 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             store.liveRegions.collect { v -> _state.value = _state.value.copy(liveRegions = v) }
+        }
+        viewModelScope.launch {
+            store.preferredQuality.collect { v -> _state.value = _state.value.copy(preferredQuality = v) }
         }
     }
 
@@ -92,5 +97,10 @@ class SettingsViewModel @Inject constructor(
     fun setLiveRegions(regions: Set<String>) {
         if (regions.isEmpty()) return // never allow empty selection
         viewModelScope.launch { store.setLiveRegions(regions) }
+    }
+
+    /** Persist the user's preferred playback quality for source ranking. */
+    fun setPreferredQuality(quality: Quality) {
+        viewModelScope.launch { store.setPreferredQuality(quality) }
     }
 }

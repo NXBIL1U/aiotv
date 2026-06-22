@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.R
+import com.itrepos.aiotv.domain.model.Quality
 import kotlinx.coroutines.launch
 
 /** All 7 region tags with friendly display labels. */
@@ -230,6 +231,31 @@ fun SettingsScreen(
                     label = { Text(label) },
                 )
             }
+        }
+
+        // ── Playback — Preferred Quality ───────────────────────────────────────
+        Spacer(Modifier.height(16.dp))
+        SectionHeader("Playback")
+        Text(
+            "Preferred quality for source ranking. 1080p is recommended for most connections.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = state.preferredQuality == Quality.HD_1080,
+                onClick = { viewModel.setPreferredQuality(Quality.HD_1080) },
+                label = { Text("1080p") },
+            )
+            FilterChip(
+                selected = state.preferredQuality == Quality.UHD_2160,
+                onClick = { viewModel.setPreferredQuality(Quality.UHD_2160) },
+                label = { Text("4K") },
+            )
         }
 
         Spacer(Modifier.height(24.dp))
