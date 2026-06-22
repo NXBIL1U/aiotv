@@ -312,7 +312,7 @@ fun PlayerScreen(
         }
 
         Text(
-            text = title,
+            text = session?.title ?: title,
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
