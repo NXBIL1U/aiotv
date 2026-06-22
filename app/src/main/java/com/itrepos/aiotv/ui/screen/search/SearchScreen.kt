@@ -38,6 +38,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.itrepos.aiotv.ui.components.MediaCard
 import com.itrepos.aiotv.ui.navigation.Screen
 
+// TV overscan-safe margins so edge content isn't cropped by the display bezel.
+private val TvOverscanH = 48.dp
+private val TvOverscanV = 27.dp
+
 @Composable
 fun SearchScreen(
     isTv: Boolean,
@@ -52,11 +56,18 @@ fun SearchScreen(
         focusRequester.requestFocus()
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = if (isTv) TvOverscanH else 16.dp,
+                vertical = if (isTv) TvOverscanV else 16.dp,
+            )
+    ) {
         OutlinedTextField(
             value = state.query,
             onValueChange = viewModel::onQueryChange,
-            label = { Text("Search movies, series, channels…") },
+            label = { Text("Search movies & series…") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -78,9 +89,20 @@ fun SearchScreen(
                     }
                 }
 
+                state.error != null -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            state.error!!,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(24.dp),
+                        )
+                    }
+                }
+
                 state.query.length >= 2 &&
                     state.mediaResults.isEmpty() &&
-                    state.channelResults.isEmpty() -> {
+                    state.error == null -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "No results for \"${state.query}\"",
@@ -96,26 +118,6 @@ fun SearchScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 12.dp),
                     ) {
-                        if (state.channelResults.isNotEmpty()) {
-                            item(key = "header_channels") {
-                                Text(
-                                    "Channels",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                )
-                            }
-                            items(
-                                items = state.channelResults,
-                                key = { ch -> "ch_${ch.id}" },
-                            ) { ch ->
-                                MediaCard(
-                                    title = ch.name,
-                                    imageUrl = ch.logoUrl,
-                                    aspectRatio = 16f / 9f,
-                                    onClick = { onNavigate(Screen.Player.createRoute(ch.streamUrl, ch.name)) },
-                                )
-                            }
-                        }
                         if (state.mediaResults.isNotEmpty()) {
                             item(key = "header_media") {
                                 Text(
@@ -146,26 +148,6 @@ fun SearchScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        if (state.channelResults.isNotEmpty()) {
-                            item(key = "header_channels", span = { GridItemSpan(maxLineSpan) }) {
-                                Text(
-                                    "Channels",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(vertical = 8.dp),
-                                )
-                            }
-                            items(
-                                items = state.channelResults,
-                                key = { ch -> "ch_${ch.id}" },
-                            ) { ch ->
-                                MediaCard(
-                                    title = ch.name,
-                                    imageUrl = ch.logoUrl,
-                                    aspectRatio = 16f / 9f,
-                                    onClick = { onNavigate(Screen.Player.createRoute(ch.streamUrl, ch.name)) },
-                                )
-                            }
-                        }
                         if (state.mediaResults.isNotEmpty()) {
                             item(key = "header_media", span = { GridItemSpan(maxLineSpan) }) {
                                 Text(

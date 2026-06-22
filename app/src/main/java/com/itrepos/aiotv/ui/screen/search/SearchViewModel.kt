@@ -2,10 +2,8 @@ package com.itrepos.aiotv.ui.screen.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.itrepos.aiotv.domain.model.Channel
 import com.itrepos.aiotv.domain.model.MediaItem
-import com.itrepos.aiotv.domain.usecase.GetCatalogUseCase
-import com.itrepos.aiotv.domain.usecase.GetChannelsUseCase
+import com.itrepos.aiotv.domain.usecase.SearchVodUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,14 +17,13 @@ import javax.inject.Inject
 data class SearchState(
     val query: String = "",
     val mediaResults: List<MediaItem> = emptyList(),
-    val channelResults: List<Channel> = emptyList(),
     val isSearching: Boolean = false,
+    val error: String? = null,
 )
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val getCatalog: GetCatalogUseCase,
-    private val getChannels: GetChannelsUseCase,
+    private val searchVod: SearchVodUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchState())
@@ -50,13 +47,20 @@ class SearchViewModel @Inject constructor(
     }
 
     private suspend fun search(query: String) {
-        _state.value = _state.value.copy(isSearching = true)
-        val movies = getCatalog("movie").filter { it.name.contains(query, ignoreCase = true) }
-        val channels = getChannels().filter { it.name.contains(query, ignoreCase = true) }
-        _state.value = _state.value.copy(isSearching = false, mediaResults = movies, channelResults = channels)
+        _state.value = _state.value.copy(isSearching = true, error = null)
+        try {
+            val results = searchVod(query)
+            _state.value = _state.value.copy(isSearching = false, mediaResults = results)
+        } catch (e: Exception) {
+            _state.value = _state.value.copy(
+                isSearching = false,
+                mediaResults = emptyList(),
+                error = "Search unavailable — check your connection.",
+            )
+        }
     }
 
     private fun clearResults() {
-        _state.value = _state.value.copy(mediaResults = emptyList(), channelResults = emptyList())
+        _state.value = _state.value.copy(mediaResults = emptyList(), error = null)
     }
 }
