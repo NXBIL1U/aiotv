@@ -30,6 +30,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    /** Clear the now-playing session so a stale session cannot hijack a later play. */
+    fun clearSession() = playbackController.clear()
+
     /** Resume position for [id], or 0 if none / already near the end. */
     suspend fun getStartPosition(id: String): Long {
         val progress = watchProgressStore.getProgress(id).first() ?: return 0L

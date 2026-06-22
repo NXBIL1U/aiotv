@@ -207,6 +207,10 @@ fun PlayerScreen(
             // post-advance dispose saves against the right episode, not the route's original arg.
             if (pos > 0) viewModel.saveProgress(lastProgressId.value ?: playProgressId, pos, dur)
             exoPlayer.release()
+            // Clear the singleton session so a subsequent navigation with the same progressId
+            // (e.g. manual source pick from Sources sheet, or a movie whose progressId==url)
+            // always starts from the URL it was actually given — never from a stale session.
+            viewModel.clearSession()
         }
     }
 

@@ -85,8 +85,6 @@ class PlaybackController @Inject constructor(
         _state.value = PlaybackState(chosenUrl, title, progressId, upNext = null)
     }
 
-    fun hasSessionFor(progressId: String) = _state.value?.progressId == progressId
-
     /** Mid-play failover: try the next candidate source for the SAME item. false when exhausted. */
     suspend fun failover(): Boolean {
         val s = _state.value ?: return false
