@@ -105,8 +105,8 @@ fun AppNavigation(isTv: Boolean, windowSizeClass: WindowSizeClass) {
                 type = type,
                 id = id,
                 isTv = isTv,
-                onPlayStream = { url, t ->
-                    navController.navigate(Screen.Player.createRoute(url, t))
+                onPlayStream = { url, t, progressId ->
+                    navController.navigate(Screen.Player.createRoute(url, t, progressId))
                 },
                 onBack = { navController.popBackStack() },
             )
